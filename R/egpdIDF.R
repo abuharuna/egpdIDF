@@ -26,3 +26,13 @@
 NULL
 
 globalVariables(c("duration", "i"))
+
+#'A fictious hourly  time series of precipitation
+#'
+#' @format ## `precipdata`
+#' A data frame of two columns and 1577952 rows:
+#' \describe{
+#'   \item{date}{date}
+#'   \item{SCH}{precipitation amounts}
+#' }
+"precipdata"

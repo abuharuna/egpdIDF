@@ -24,6 +24,45 @@
 #'    fits: egdp parameters fit for each duration seperately
 #'    regres_summary: summary of the lm fit of the sigma vs duration
 #'
+#' @examples
+#'  ## load the data
+#'  data("precipdata")
+#'
+#'  ## Here the resolution of the data is in 'hours', we want to aggeregate the data up to 72 hours
+#'  ## specify the aggregation durations
+#'
+#'  durations =  c(1,2, 3,  6,  10, 12,  16, 18,  24, 48, 72)
+#'
+#'  ## get the aggrageted data for each of the
+#'  station_data= aggregate_data(sample_data = precipdata, st_code = "SCH",  durations = durations)
+#'
+#'
+#'  initial_params = egpd_idf_init(station_data = station_data,
+#'                                          durations = durations, fitting_method = "mle",
+#'                                           declustering_duration =  c(1,2,3,6,10,12, 16,18, 24, 48, 72), auto_fit = F)
+#'  ## check the fitted egpd parameters for each duration
+#'  initial_params$fits$kappa_param
+#'  initial_params$fits$scale_param
+#'  initial_params$fits$shape_param
+#'
+#'  ## check the quality of the fit
+#'  initial_params$fits$nrsme
+#'
+#'  ## for a good fit, 'nrsme" should be small.
+#'
+#'  ##  its always good to  use left censoring with 'mle' fit. Lets try, and check the 'nrmse' again
+#'  ##  we set "auto_fit=T", "nrmse_tol=0.1"  "use_r_optim=T" , "nrsme_quantile = 0". Check the arguments for their meaning
+#'  initial_params = egpd_idf_init(station_data = station_data,
+#'                                          durations = durations, fitting_method = "mle",
+#'                                          declustering_duration =  c(1,2,3,6,10,12, 16,18, 24, 48, 72),
+#'                                          auto_fit = T, nrmse_tol = 0.1,use_r_optim = T, nrsme_quantile = 0)
+#'  ## check the quality of the fit
+#'  initial_params$fits$nrsme
+#'  ## check the parameters
+#'  initial_params$fits$kappa_param
+#'  initial_params$fits$scale_param
+#'  initial_params$fits$shape_param
+#'
 #' @export
 egpd_idf_init <- function(station_data, durations, declustering_duration, init_time_step = 1,
                           fitting_method = "mle", auto_fit = T, nrmse_tol = 0.1,simple_scaling = T, use_r_optim = F, nrsme_quantile = 0){
@@ -260,29 +299,55 @@ local_fit_IDF_h_par  <- function(sample, fitting_method= "mle", auto_fit = T, nr
 #'
 #'    fits: egdp parameters fit for each duration seperately
 #'    optim details, to check convergence
+#' @examples
+#'  ## load the data
+#'  data("precipdata")
 #'
+#'  ## Here the resolution of the data is in 'hours', we want to aggeregate the data up to 72 hours
+#'  ## specify the aggregation durations
+#'
+#'  durations =  c(1,2, 3,  6,  10, 12,  16, 18,  24, 48, 72)
+#'
+#'  ## get the aggrageted data for each of the
+#'  station_data= aggregate_data(sample_data = precipdata, st_code = "SCH",  durations = durations)
+#'
+#'  ## get initial values
+#'
+#'  initial_params = egpd_idf_init(station_data = station_data,
+#'                                          durations = durations, fitting_method = "mle",
+#'                                          declustering_duration =  c(1,2,3,6,10,12, 16,18, 24, 48, 72),
+#'                                          auto_fit = T, nrmse_tol = 0.1,use_r_optim = T, nrsme_quantile = 0)
+#'  ## fit the data driven IDF
+#'  fitted_idf = fit_egpd_idf_data_driven(station_data = station_data, durations = durations,
+#'                            declustering_duration = c(1,2, 3,  6,  10, 12,  16, 18,  24, 48, 72),
+#'                            fitting_method = 'mle',  initial_params = initial_params,
+#'                            optim_algo = "BFGS")
+#'
+#'  #check 'optim' params, for convergencem etc
+#'  fitted_idf$fitted_params
+#'
+#'  #parameters of the IDF
+#'  fitted_idf$fitted_params$par
+#'
+#'  # fitted egpd parameters for the given durations
+#'  kappa_fit =  fitted_idf$kappa_param
+#'  sigma_fit = fitted_idf$scale_param
+#'  xi_fit = fitted_idf$shape_param
+#'
+#'  #compute nrmse to check quality of fit
+#'  nrmse_d = compute_nrsme(station_data, c(1,2,3,6,10,12, 16,18, 24, 48, 72), kappa_fit, sigma_fit, xi_fit, init_time_step = 1, q = 0)
+#'  nrmse_d
+#'
+#' # Plot the IDF curves
+#' plot_egpdidf_curves(station_data = station_data,  kappa_fit = kappa_fit, sigma_fit = sigma_fit, xi_fit = xi_fit, durations, declustering_duration=c(1,2,3,6,10,12, 16,18, 24, 48, 72), npy = 92, init_time_step=1 )
+
 #' @export
 fit_egpd_idf_data_driven <- function(station_data, durations, declustering_duration, initial_params,
                                          censored,   fitting_method = "mle", init_time_step=1,
                                         use_mle_init =F,  optim_algo = "Nelder-Mead"){
 
-  #### INPUT
-  #
-  # station_data: data_frame of observation for a station (nobs x aggreation duration)
-  # durations: (vector) aggeragtion durations (same lenght as ncol of station_data)
-  #declustering_duration: whether the data should be declustered, if yes the time step
-  #fit egpd for each duration
-  # resolution: "d" for daily and "h" for hourly,
-  # simple_scaling: T or F: if T, theta will be set to zero
-  # xi constant; if F, xi wil be modelled as a function of duration
 
-  #### OUTPUT
-  # A list:
-  ## init: the initial paramters to use for fitting a egpd IDF model
-  ## fits: egdp fit for each duration seperately
-  ## regres_summary: summary of the lm fit of the sigma vs duration
-  if (length(censored)==1)
-    censored = censored/durations
+
 
   if (missing(initial_params)) {stop("provide initial paramters")} else{
     init =  initial_params$init
@@ -290,6 +355,11 @@ fit_egpd_idf_data_driven <- function(station_data, durations, declustering_durat
     station_fit = initial_params$fits
   }
 
+  if (missing(censored)){
+    censored = initial_params$fits$lower_threshold
+  } else if (length(censored)==1){
+    censored = censored/durations
+  }
 
 
   #xxx = fit_segmented(paramet = initial_params$fits$kappa_param, covar = durations)
@@ -627,9 +697,10 @@ fit_egpd_idf_scaling_models <- function(station_data, durations, declustering_du
     scaling_break = init['k']
     init = init[! names(init) %in% c('sigma02', 'k')]
   }
-
+  if (length(censored)==1)
+    censored = censored/durations
   # function for the likelihhod (with Xi dependent on D) to be mqximized taking into acoount lower censoring
-  LK.EGPD.idf <- function(init, scaling_break, station_data, durations, censored,multi_regime, declustering_duration = declustering_duration){
+  LK.EGPD.idf <- function(init, scaling_break, station_data, durations, censored,multi_regime, declustering_duration = declustering_duration, init_time_step = init_time_step){
     #### INPUT
     # init (vector(5)): kappa; sigma (scale), xi (shape), eta, theta (IDF of koutsoyiannis, 1998)
     # station_data: data_frame of observation for a station (nobs x aggreation duration)
@@ -651,8 +722,7 @@ fit_egpd_idf_scaling_models <- function(station_data, durations, declustering_du
       init = c(init[-which(names(init) =="theta")], init['theta'])
     #init[] = init[c()]
 
-    if (length(censored)==1)
-      censored = censored/durations
+
 
     if (xi_constant) {
       ## ***** check all params are within range
@@ -725,25 +795,26 @@ fit_egpd_idf_scaling_models <- function(station_data, durations, declustering_du
         #for uncensored data
         contrib.not.cens <- sum(d_egpd(x = vec_p, kappa = kappa_vec, sigma_d = vec_sigma_d, xi = xi_vec))
         #sum the two likelihhods
+
         return(-(contrib.cens1+ contrib.not.cens))
       }else{
-        return(Inf)
+        return(1e100)
       }
     } else{ ###### XI a function ot duration
 
       ##  ****** checck that params are within range
       #if (init['xi0'] < 0 | init['xi_eta1'] > 0) return(Inf)
       # if (length(init) == 4 &  init[4] < 0) return(Inf) # check that theta remains positive
-      if (any(nms == 'theta') &  init['theta'] < 0 ) return(Inf) # check that theta remains positive
+      if (any(nms == 'theta') &  init['theta'] < 0 ) return(1e100) # check that theta remains positive
 
       if (any(nms == 'eta2') )
-        if(init['eta2'] <= 0 | init['eta2']  >= 1) return(Inf)
+        if(init['eta2'] <= 0 | init['eta2']  >= 1) return(1e100)
 
       # check that slope eta is within range, named eta or eta1 depending on no of regimes
       if(multi_regime){
-        if (any(init[c('kappa0', 'eta1')] <= 0) | init[c('eta1')] >= 1 | init[c('eta1')] <= 10^(-6) ) return(Inf)
+        if (any(init[c('kappa0', 'eta1')] <= 0) | init[c('eta1')] >= 1 | init[c('eta1')] <= 10^(-6) ) return(1e100)
       } else {
-        if (init[c('eta')] >= 1 |  init[c('eta')] <= 10^(-6) |init[c('kappa0')] <= 0  ) return(Inf)
+        if (init[c('eta')] >= 1 |  init[c('eta')] <= 10^(-6) |init[c('kappa0')] <= 0  ) return(1e100)
       }
       # ******** end check
 
@@ -814,9 +885,10 @@ fit_egpd_idf_scaling_models <- function(station_data, durations, declustering_du
         #for uncensored data
         contrib.not.cens <- sum(d_egpd(x = vec_p, kappa = kappa_vec, sigma_d = vec_sigma_d, xi = vec_xi_d))
         #sum the two likelihhods
+
         return(-(contrib.cens1+ contrib.not.cens))
       }else{
-        return(Inf)
+        return(1e100)
       }
     }
 

@@ -34,65 +34,147 @@ get_non_exc_probs_idf = function(x, y, npy, Tr_vec = c(2, 5, 10, 20, 50, 100), i
   probs
 
 }
-# function to plot the idf (MODIFY FOR TR INSTEAD OF P)
-IDF.plot_egpd =function (durations, parameters, xi_fit, datadriven = F, probs = c(0.99, 0.999, 0.9999), title= "IDF_egpd", cols = 4:2, ylim,xlabs,ylabs, ...) {
-  if (datadriven & !inherits(parameters, "data.frame"))
-    stop("You have specfied  'datadriven = T', the argument 'parameters', should be a dataframe of kappa, sigma and xi")
-  if (is.vector(probs) ) {
-    if (length(cols) != length(probs)) cols <- 1:nrow(probs)
-  } else {
-    if (length(cols) != nrow(probs)) cols <- 1:nrow(probs)
+#'  Quantile-Quantile Plot of EGPD model
+#'
+#'  The function plot qqplot from a fitted egpd model
+#'
+#' @param data vector of observation for a station
+#' @param kappa  egpd 'kappa'  paramater
+#' @param sigma  egpd 'sigma' paramater
+#' @param xi    egpd shape parammter (xi)
+#' @param ranking_method  a character string specifying how ties are treated. see \code{rank}  function in \code{R}. Defualts to "average"
+#' @param title optional a character string for the title of the plot
+#' @param subtitle optional a character string for the subtitle of the plot
+#' @param confid logical, whether confidence bounds are to be plotted, defaults to \code{FALSE}
+#' @param q_up  a numerical vector. For the upper confidence levels, only if \code{confid = T}
+#' @param q_low  a numerical vector. For the lower confidence levels, only if \code{confid = T}
+#' @details
+#'   Note that  for confidence bounds to be plotted, \code{q_up} and \code{q_low} have to be separately computed by the user, eg via bootstrap
+#'
+#' @return a ggplot object
+#'
+#' @export
+qqplot_egpd = function(data, kappa, sigma, xi, ranking_method = "average", title = "QQPLOT EGPD",
+                       subtitle = "", confid = FALSE, q_up = NA, q_low = NA){
+
+  data = na.omit(data)
+  data = sort(data[data>0], decreasing = F)
+  rank_i = rank(data, ties.method = ranking_method)
+  q_emp  <- data.frame(d =  data, probs = rank_i/(length(data[data>0])+1))
+  q_theo <- qextgp(p=q_emp$probs, prob=NA, kappa=kappa, delta=NA, sigma= sigma, xi=xi , type=1)
+  data_gg = data.frame(x= q_emp$d, y = q_theo)
+  max_q = max(data_gg$x, data_gg$y)
+  qplot= ggplot(data_gg)+ geom_point( aes(x = x,y = y)) + geom_abline() + theme_void() +theme_bw() +
+    scale_x_continuous(breaks = round(seq(0,30,5) * max_q/30, 1), limits = c(0, max_q)) +
+    scale_y_continuous(breaks = round(seq(0,30,5) * max_q/30, 1), limits = c(0, max_q)) +
+    labs(x="Empirical", y ="Theoretical", title = title, subtitle = subtitle)
+
+  if (confid == T & !missing(q_up) & !missing(q_low)) {
+    qplot = qplot +
+      geom_line(aes(x = x, y=q.mle.U), col = "red") +
+      geom_line(aes(x = x, y=q.mle.L), col = "red")
+    #geom_ribbon(aes(x = x, ymin=q_low, ymax=q_up), alpha = 0.1)
   }
-
-  # to store the levels
-  idf.array = matrix(data = NA, nrow(probs), length(durations))
-  if (!datadriven & any(names(parameters) == "xi0")) { #constant xi
-    # qs <- lapply(durations, q_egpd_idf, probs = probs,  par=parameters)
-    # idf.array <- matrix(unlist(qs), length(probs), length(durations))
-
-    #idf.array = matrix(data = NA, length(probs), length(durations))
-    par = parameters
-    for (id in 1:length(durations)){
-      dur = durations[id]
-      sigma_d =  get_sigma_d(par = par, d = dur)
-      #sigma_d =  ifelse(length(par)==3,par[2]/(dur)^par[3] ,par[2]/(dur+par[4])^par[3])
-      idf.array[,id ] = qextgp(p = probs[,id], prob=NA, kappa =par[1], delta=NA, sigma= sigma_d, xi=par['xi0'] , type=1)
-    }
-
-  } else if(!datadriven) { # xi function of duration
-    #idf.array = matrix(data = NA, length(probs), length(durations))
-    par = parameters
-    for (id in 1:length(durations)){
-      dur = durations[id]
-      sigma_d =  get_sigma_d(par = par, d = dur)
-      #sigma_d =  ifelse(length(par)==3,par[2]/(dur)^par[3] ,par[2]/(dur+par[4])^par[3])
-      idf.array[,id ] = qextgp(p = probs[,id], prob=NA, kappa =par[1], delta=NA, sigma= sigma_d, xi=xi_fit[id] , type=1)
-    }
-  } else if (datadriven){
-    #idf.array = matrix(data = NA, length(probs), length(durations))
-    for (id in 1:length(durations)){
-      idf.array[,id] = qextgp(p = probs[,id], prob=NA, kappa =parameters[id,1], delta=NA, sigma= parameters[id,2], xi=parameters[id,3] , type=1)
-    }
-  }
-
-
-  if (missing(ylim))
-    ylim = c(min(idf.array), max(idf.array))
-
-  if (missing(xlabs))
-    xlabs = "Duration"
-
-  if (missing(ylabs))
-    ylabs =  "Intensity [mm/hr]"
-
-  plot(NA, xlim = c(min(durations), max(durations)), ylim = ylim,  xlab = xlabs, ylab = ylabs,  log = "xy", main = title, ...)
-  for (i in 1:nrow(probs)) {
-    lines(durations, idf.array[i, ], col = cols[i],  lwd = 2)
-  }
-  legend(x = "topright", ncol = 1 , title = "T-years", legend = rev(rownames(probs)), fill = rev(cols),  bty = 'n', cex = 0.8 )
-
+  return(qplot)
 }
 
+# tr plot
+# function tp produce return level plot according to weibull equation
+# Arguments: data : station series
+#           kappa, sigma, xi: fitted egpd parameters
+# returns: ggplot object of the return level plot
+
+#'  Quantile-Quantile Plot of EGPD model
+#'
+#'  The function plot qqplot from a fitted egpd model
+#'
+#' @param data vector of observation for a station
+#' @param kappa  egpd 'kappa'  paramater
+#' @param sigma  egpd 'sigma' paramater
+#' @param xi    egpd shape parammter (xi)
+#' @param max_T  a scalar. The largest return level to be considered in the plot
+#' @param npy number of observations per year. Eg if  \code{data} contains only daily data in summer, then \code{npy = 92}. If  for a year, then \code{npy = 365.25} etc description
+#' @details
+#'   to be done
+#'
+#' @return a ggplot object
+#'
+#' @export
+
+trplot_egpd = function(data, kappa, sigma, xi, npy, max_T = 1000){
+  data = na.omit(data)
+  n_postive_rain = length(data[data>0])
+  n_year_obs = length(data)/npy
+  jj <- seq(-1, log10(max_T), by = 0.1)
+  tr_data = data.frame(tr_years = 10^jj)
+  tr_data$tr_quantiles <- NA
+  for(i in 1:length(tr_data$tr_years)){
+    tr_data$tr_quantiles[i] = qextgp(p=1-1/(tr_data$tr_years[i]*n_postive_rain/n_year_obs), prob=NA, kappa=kappa, delta=NA, sigma= sigma, xi=xi , type=1)
+  }
+  q_emp  <- data.frame(d = sort(data[data>0], decreasing = F) , probs = (1:length(data[data>0]))/(length(data[data>0])+1))
+  #q_theo <- qextgp(p=q_emp$probs, prob=NA, kappa=kappa, delta=NA, sigma= sigma, xi=xi , type=1)
+  data_emp = data.frame(x =  1/(1-q_emp$probs)*(n_year_obs/n_postive_rain), y= q_emp$d)
+  tr_plot= ggplot()+ geom_point(data = data_emp, aes(x = x,y = y)) +
+    geom_line(data = tr_data, aes(x = tr_years,y = tr_quantiles))+ scale_x_log10(breaks = scales::trans_breaks("log10", function(x) 10^x),
+                                                                                 labels = scales::trans_format("log10", math_format(10^.x)))+   theme_void() +theme_bw() +
+    labs(x="Return period (years)", y ="Return level (mm)", title = "Return level PLOT") + annotation_logticks(sides = "b")
+  return(tr_plot)
+}
+
+
+#'  Plot IDF Curves
+#'
+#'  The function plot IDF curves from a fitted egpdIDF model
+#'
+#' @param station_data data_frame of observation for a station (nobs x aggregation duration)
+#' @param kappa_fit  a numerical vector  of  egpd 'kappa'  parmater. Same length as \code{ncol(station_data)}
+#' @param sigma_fit same as  \code{kappa_fit} but for egpd 'sigma'
+#' @param xi_fit   same as  \code{kappa_fit} but for egpd shape parammter (xi)
+#' @param durations  a (vector) of durations (same length as ncol of station_data)
+#' @param declustering_duration a vector same length as \code{duration} .Whether the data should be temporally declustered, if yes the time step for each duration, or a vector of 1 otherwise
+#' @param npy number of days per year. Eg if  \code{station_data} contains only data in summer, then \code{npy = 92}. If  for a year, then \code{npy = 365.25} etc
+#' @param Tr_vec numerical vector of return periods fro which the curves are to be plotted.
+#' @param init_time_step  a scalar, eg 1 or 2. The time step to start declustering the data. eg, for hourly data, if  \code{declustering =3} and  \code{init_time_step = 2}, then the 2nd hour will be selected, and then a sequence is applied
+#'  If a character, then a weighted normalized root mean square error will be used.
+#'
+#' @details
+#'   to be added
+#'
+#' @return a ggplot object
+#'
+#' @export
+
+plot_egpdidf_curves =function(station_data, kappa_fit, sigma_fit, xi_fit, durations, declustering_duration, npy, Tr_vec = c(2,5,10,20,50,100), init_time_step =1  ){
+
+  #2.0 return level
+  non_ex_probs = mapply(get_non_exc_probs_idf, x = station_data, y=  declustering_duration, npy = npy*24/declustering_duration,
+                        init_time_step = init_time_step,MoreArgs = list(Tr_vec = Tr_vec) )
+
+  # IDF_return_levels(station_data, declustering_duration , durations , Tr_vec, npy = npy, parameters = data.frame(kappa_fit, sigma_fit, xi_fit)) %>% data.frame %>%
+  #    mutate(Tr = Tr_vec) %>%  tidyr::pivot_longer(cols = 1:length(durations),names_to = "dur", values_to = "tr_idf")
+  #
+  tr_levels = purrr::map_dfc(1:length(durations), function(i){
+    qq= qextgp(p = non_ex_probs[,i], prob=NA, kappa =  kappa_fit[i],
+               sigma= sigma_fit[i], xi=xi_fit[i], type=1)# * durations[i]
+    return(setNames(data.frame(qq), durations[i]))
+  }) %>% mutate(Tr = Tr_vec) %>%  tidyr::pivot_longer(cols = 1:length(durations),names_to = "dur", values_to = "tr_idf")
+  emp_lev=emperical_levels_idf(station_data, declustering_duration ,non_ex_probs =non_ex_probs,  init_time_step = 1, durations ,Tr_year = Tr_vec,
+                               npy = npy)  %>% data.frame() %>% setNames(durations)  %>% mutate(Tr = Tr_vec) %>%
+    tidyr::pivot_longer(cols = 1:length(durations),names_to = "dur", values_to = "emp_lev")
+
+  plot_data_idf = tr_levels %>% dplyr::mutate(emp_lev)
+
+  p= ggplot()+
+    geom_line(data = plot_data_idf, aes(x = as.numeric(dur),y = tr_idf, col = factor(Tr) ))+
+    geom_point(data = plot_data_idf, aes(x = as.numeric(dur),y = emp_lev, col = factor(Tr))) +
+    scale_x_continuous(trans = "log10", breaks = durations)+
+    scale_y_continuous(trans = "log10")+theme_bw() +
+    labs(x="Duration (hours)", y ="Return level (mm)", title = "IDF Curves", col = "Return Period") +
+    #annotation_logticks(sides = "b") +
+    #facet_wrap(.~factor(season, levels = seasons_name), scales = "free_y")  +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+  return(p)
+}
 ##
 #function to compute retirn levels
 IDF_return_levels = function(station_data, declustering_duration, durations, Tr_year, parameters, npy, init_time_step=1){
@@ -101,7 +183,7 @@ IDF_return_levels = function(station_data, declustering_duration, durations, Tr_
   # parameters : dataframe of k,sigma, xi: each row corrspond to a particular duration
 
   # compute the non_exceedance prob for each TR and for each duration
-  non_ex_probs = mapply(get_non_exc_probs_idf, x = station_data, y=  declustering_duration, npy = npy*24/durations, MoreArgs = list(Tr_vec = Tr_year, init_time_step=init_time_step) )
+  non_ex_probs = mapply(get_non_exc_probs_idf, x = station_data, y=  declustering_duration, npy = npy*24/declustering_duration, MoreArgs = list(Tr_vec = Tr_year, init_time_step=init_time_step) )
 
 
   if (is.vector(non_ex_probs))
@@ -125,7 +207,7 @@ emperical_levels_idf = function(station_data, declustering_duration, durations, 
 
   # compute the non_exceedance prob for each TR and for each duration
   if (missing(non_ex_probs)) {
-    non_ex_probs = mapply(get_non_exc_probs_idf, x = station_data, y=  declustering_duration, npy = npy*24/durations, MoreArgs = list(Tr_vec = Tr_year, init_time_step=init_time_step) )
+    non_ex_probs = mapply(get_non_exc_probs_idf, x = station_data, y=  declustering_duration, npy = npy*24/declustering_duration, MoreArgs = list(Tr_vec = Tr_year, init_time_step=init_time_step) )
 
     if (is.vector(non_ex_probs))
       non_ex_probs = data.frame(t(non_ex_probs))
@@ -146,15 +228,25 @@ emperical_levels_idf = function(station_data, declustering_duration, durations, 
   emperical_levels_d
 
 }
-#eg call
-#IDF_return_levels(station_data, declustering_duration , durations , c(10,100), npy = 90, parameters = data.frame(kappa_fit, sigma_fit, xi_fit))
-#emperical_levels_idf(station_data, declustering_duration , durations , c(10,100), npy = 90, parameters = data.frame(kappa_fit, sigma_fit, xi_fit))
 
 
-
-
-#wrapper function to nrmse_idf, computes same for a reange od durations
-#q is in % eg 0% for all postive data, and 95% for exceedances of a 95% quantile. Quantile is over ALL  values (zeros included)
+#'  A wrapper function of \code{nrmse_idf}, computes NRMSE same for a range of durations
+#'
+#'  NRMSE stands for Normalized Root Mean Square Error
+#'
+#' @param station_data data_frame of observation for a station (nobs x aggregation duration)
+#' @param kappa_fit  a numerical vector  of  egpd 'kappa'  parmater. Same length as \code{ncol(station_data)}
+#' @param sigma_fit same as  \code{kappa_fit} but for egpd 'sigma'
+#' @param xi_fit   same as  \code{kappa_fit} but for egpd shape parammter (xi)
+#' @param nrsme_quantile optional. a number in percentage, or any character eg \code{nrsme_quantile = 90}, the normalized root mean square error will only be computed on excesses of the quantile. Quantile is over ALL  values (zeros included)
+#'  If a character, then a weighted normalized root mean square error will be used.
+#'
+#' @details
+#'   to be added
+#'
+#' @return a numerical vector of 'nrmse'
+#'
+#' @export
 compute_nrsme = function(station_data, declustering_duration,  kappa_fit, sigma_fit, xi_fit,init_time_step=1,  q = 0){
 
   nrmse_d = sapply(1:ncol(station_data), function(id){
