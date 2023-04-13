@@ -573,6 +573,7 @@ fit_egpd_idf_data_driven <- function(station_data, durations, declustering_durat
 #' @param simple_scaling logical, defaults to \code{TRUE}, defines the initial values values that would be returned
 #' @param use_r_optim logical, defaults  to \code{FALSE}, if yes, \code{optim} will be used to find the best lower censoring values, otherwise, descrete values will be tested
 #' @param nrsme_quantile a number in percentage, or any character eg \code{nrsme_quantile = 90}, the normalized root mean square error will only be computed on excesses of the quaneile.  If a charanter, then a weighted normalized root mean square error will be used.
+#' @param optim_algo the \code{optim} algtorthm to use. defaults to \code{"Nelder-Mead" }
 #'
 #' @details
 #'   to be added
@@ -581,32 +582,57 @@ fit_egpd_idf_data_driven <- function(station_data, durations, declustering_durat
 #'    init: the initial parameters to use for fitting a egpd IDF model
 #'    fits: egdp parameters fit for each duration seperately
 #'    regres_summary: summary of the lm fit of the sigma vs duration
+#' @examples
+#'  ## load the data
+#'  data("precipdata")
 #'
+#'  ## Here the resolution of the data is in 'hours', we want to aggeregate the data up to 72 hours
+#'  ## specify the aggregation durations
+#'
+#'  durations =  c(1,2, 3,  6,  10, 12,  16, 18,  24, 48, 72)
+#'
+#'  ## get the aggrageted data for each of the
+#'  station_data= aggregate_data(sample_data = precipdata, st_code = "SCH",  durations = durations)
+#'
+#'  ## get initial values
+#'
+#'  initial_params = egpd_idf_init(station_data = station_data,
+#'                                          durations = durations, fitting_method = "mle",
+#'                                          declustering_duration =  c(1,2,3,6,10,12, 16,18, 24, 48, 72),
+#'                                          auto_fit = T, nrmse_tol = 0.1,use_r_optim = T, nrsme_quantile = 0)
+#'  ## fit the data driven IDF
+#'  fitted_idf = fit_egpd_idf_scaling_models(station_data = station_data, durations = durations,
+#'                  censored = initial_params$fits$lower_threshold,
+#'                  declustering_duration = c(1,2, 3,  6,  10, 12,  16, 18,  24, 48, 72),
+#'                  fitting_method = 'mle',  initial_params = initial_params,
+#'               simple_scaling = T, multi_regime = T, xi_constant = F,
+#'               init_time_step = 1,auto_fit = F, nrmse_tol = 0.1, use_r_optim = F,
+#'               nrsme_quantile = 0, optim_algo = "BFGS")
+#'
+#'  #check 'optim' params, for convergence etc
+#'  fitted_idf$fitted_params
+#'
+#'  #parameters of the IDF
+#'  fitted_idf$fitted_params$par
+#'
+#'  # fitted egpd parameters for the given durations
+#'  kappa_fit =  fitted_idf$kappa_param
+#'  sigma_fit = fitted_idf$scale_param
+#'  xi_fit = fitted_idf$shape_param
+#'
+#'  #compute nrmse to check quality of fit
+#'  nrmse_d = compute_nrsme(station_data, c(1,2,3,6,10,12, 16,18, 24, 48, 72), kappa_fit, sigma_fit, xi_fit, init_time_step = 1, q = 0)
+#'  nrmse_d
+#'
+#' # Plot the IDF curves
+#' plot_egpdidf_curves(station_data = station_data,  kappa_fit = kappa_fit, sigma_fit = sigma_fit, xi_fit = xi_fit, durations, declustering_duration=c(1,2,3,6,10,12, 16,18, 24, 48, 72), npy = 92, init_time_step=1 )
 #' @export
 fit_egpd_idf_scaling_models <- function(station_data, durations, declustering_duration, initial_params,
                                         censored,  fitting_method = "mle", simple_scaling = T, multi_regime =F,
                                         xi_constant = T, init_time_step=1, auto_fit = T,nrmse_tol =0.1,use_r_optim=F,
-                                        nrsme_quantile =0 ){
+                                        nrsme_quantile =0, optim_algo = "Nelder-Mead" ){
 
-  #### INPUT
-  #
-  # station_data: data_frame of observation for a station (nobs x aggreation duration)
-  # durations: (vector) aggeragtion durations (same lenght as ncol of station_data)
-  #declustering_duration: whether the data should be declustered, if yes the time step
-  #fit egpd for each duration
-  # resolution: "d" for daily and "h" for hourly,
-  # simple_scaling: T or F: if T, theta will be set to zero
-  # xi constant; if F, xi wil be modelled as a function of duration
-  # xi_gam : If xi vs d should be obtained by a GAM fit
-  # fitteg_gam: already fitteg gam model, "xi_gam" to be obtained from this model, if missing, the gam fit has to be done
-  # multi_regime: logical, whether multiple regimes woul be fitted, in this case, more than 1 scaling exponent will be returned
 
-  #### OUTPUT
-  # A list:
-  ## init: the initial paramters to use for fitting a egpd IDF model
-  ## fits: egdp fit for each duration seperately
-  ## regres_summary: summary of the lm fit of the sigma vs duration
-  #if (xi_constant) xi_gam = F
 
   if (missing(initial_params)) {
     message("initial fittings")
@@ -640,7 +666,7 @@ fit_egpd_idf_scaling_models <- function(station_data, durations, declustering_du
     #xi is dependent on duration, we fit a spline relationship
     if (!xi_constant){
       xi_fit = fit_linear_model(initial_params$fits$shape_param, durations, model_type = 'linear_log_SR')
-      }
+    }
 
 
 
@@ -699,8 +725,34 @@ fit_egpd_idf_scaling_models <- function(station_data, durations, declustering_du
   }
   if (length(censored)==1)
     censored = censored/durations
+
+  #preparae tha data into a suitable format ----
+  n_cens = purrr::map_dbl(seq_along(declustering_duration), function(d){
+
+    data_dec =  decluster_set_NA(x = station_data[[d]], init_time_step = init_time_step, step = declustering_duration[d]) %>% na.omit
+    # censoring_value = init_param %>%  filter(duration == durations[d], area == grid_area[a]) %>%  pull(lower_c)
+    length(data_dec[data_dec < censored[d]])
+  })
+
+
+  station_data_censored = purrr::map_dfc(seq_along(declustering_duration), function(d){
+    data_dec =  decluster_set_NA(x = station_data[[d]], init_time_step = init_time_step, step = declustering_duration[d])
+
+    # seclect obs that are >= censoring value for duration d
+    #censoring_value = init_param %>%  filter(duration == durations[d], area == grid_area[a]) %>%  pull(lower_c)
+    data_dec[data_dec < censored[d]] =  NA
+    data_dec = data.frame( data_dec ) %>%  setNames(durations[d])
+    data_dec
+  }) %>% #pivot longer
+    tidyr::pivot_longer(cols = 1:length(durations),names_to = "duration", values_to = "precip",
+                        names_transform = list(duration = as.numeric) ) %>%  arrange(duration)
+
+  station_data_censored = tidyr::drop_na(station_data_censored)
+
+  censored_data = station_data_censored %>%  group_by(duration) %>% group_split()
+
   # function for the likelihhod (with Xi dependent on D) to be mqximized taking into acoount lower censoring
-  LK.EGPD.idf <- function(init, scaling_break, station_data, durations, censored,multi_regime, declustering_duration = declustering_duration, init_time_step = init_time_step){
+  LK.EGPD.idf <- function(init, scaling_break, durations, censored,multi_regime, censored_data,  n_cens){
     #### INPUT
     # init (vector(5)): kappa; sigma (scale), xi (shape), eta, theta (IDF of koutsoyiannis, 1998)
     # station_data: data_frame of observation for a station (nobs x aggreation duration)
@@ -726,63 +778,47 @@ fit_egpd_idf_scaling_models <- function(station_data, durations, declustering_du
 
     if (xi_constant) {
       ## ***** check all params are within range
-      if (any(nms == 'theta') &  init['theta'] < 0 ) return(Inf) # check that theta remains positive
+      if (any(nms == 'theta') &  init['theta'] < 0 ) return(1e100) # check that theta remains positive
 
       if (any(nms == 'eta2') )
-        if(init['eta2'] <= 0 | init['eta2']  >= 1) return(Inf) #
+        if(init['eta2'] <= 0 | init['eta2']  >= 1) return(1e100) #
 
 
       # check that slope eta is within range, named eta or eta1 depending on no of regimes
       if(multi_regime){
-        if ( init[c('eta1')] >= 1 | init[c('eta1')] <= 10^(-6)) return(Inf)
+        if ( init[c('eta1')] >= 1 | init[c('eta1')] <= 10^(-6)) return(1e100)
       } else {
-        if ( init[c('eta')] >= 1 | init[c('eta')] <= 10^(-6)) return(Inf)
+        if ( init[c('eta')] >= 1 | init[c('eta')] <= 10^(-6)) return(1e100)
       }
       ### ******** end check
 
       #here only sigma is a function of duration
-      vec_p = vec_sigma_d = n_cens= vec_kappa_d = vec_sigma_d = vec_xi_d  =NULL #
-      # vec_p = vec_kappa_d = vec_sigma_d = vec_xi_d = n_cens= vec_covariate = NULL #
-      it = 1
+
       # collate all data in single vectors, arranging them by durations eg
       # vec_precip= c(1,1,1..., 2,2...) contains obs form d =1, to d =n
       if (multi_regime) {
-
-        #here  two scaling regimes exist
-        for (d in durations) {
-          d_data <- station_data[seq(init_time_step,nrow(station_data),declustering_duration[it]),it]#declustering in time
-          d_data <- na.omit(d_data) # remove NA in obs of staion nei
-          n_cens <- c(n_cens,length(d_data[d_data>0 & d_data < censored[it]])) # count no of obs in nei less than censoring threshold and positive
-          obs_hi_c = d_data[d_data>= censored[it]] # seclect obs that are >= censoring value for duration d
-          obs_hi_c = obs_hi_c[obs_hi_c>0]
-          vec_p <- c(vec_p,  obs_hi_c)
-
+        vec_sigma_d= sapply(durations, function(d){
           if (d < init['k']) {
             sigma_d = ifelse(any(nms =='theta'),init['sigma01']/(d+init['theta'])^init['eta1'],init['sigma01']/(d)^init['eta1'])
             #xi_d = medi
           } else{
             sigma_d = init['sigma02']/(d)^init['eta2'] #second regime should remain SS, no theta
           }
-          # init has lecnght of 4 in the case of Simple scaling (no theta)
-          vec_sigma_d <- c(vec_sigma_d, rep(sigma_d, length(obs_hi_c)))
-          it = it +1
-        }
+          sigma_d
+        })
+
+
       } else {
         #here  ONE scaling regime exist
-        for (d in durations) {
-          d_data <- station_data[seq(init_time_step,nrow(station_data),declustering_duration[it]),it]#declustering in time
-          d_data <- na.omit(d_data) # remove NA in obs of staion nei
-          n_cens <- c(n_cens,length(d_data[d_data>0 & d_data < censored[it]])) # count no of obs in nei less than censoring threshold and positive
-          obs_hi_c = d_data[d_data>= censored[it]] # seclect obs that are >= censoring value for duration d
-          obs_hi_c = obs_hi_c[obs_hi_c>0]
-          vec_p <- c(vec_p,  obs_hi_c)
-          sigma_d = ifelse(any(nms =='theta'),init['sigma0']/(d+init['theta'])^init['eta'],init['sigma0']/(d)^init['eta']) # init has lecnght of 4 in the case of Simple scaling (no theta)
-          vec_sigma_d <- c(vec_sigma_d, rep(sigma_d, length(obs_hi_c)))
-          it = it +1
-        }
+        vec_sigma_d= sapply(durations, function(d){
+          ifelse(any(nms =='theta'),init['sigma0']/(d+init['theta'])^init['eta'],init['sigma0']/(d)^init['eta'])
+        })
+
       }
 
-      nobs = length(vec_p)
+      vec_sigma_d_full = sapply(seq_along(durations), function(i) rep(vec_sigma_d[i], length(censored_data[[i]]$precip)) )%>% unlist
+
+      nobs = length(vec_sigma_d_full)
       kappa_vec = rep(init['kappa0'], nobs)
       xi_vec =  rep(init['xi0'], nobs)
 
@@ -791,9 +827,11 @@ fit_egpd_idf_scaling_models <- function(station_data, durations, declustering_du
       if(all(unique(vec_sigma_d)> 0) & init[c('kappa0')] > 0 &
          init[c('xi0')] < 1 & init[c('xi0')] > 10^(-6) ){
         # for left censored data
-        contrib.cens1 <- ifelse(any(censored > 0), sum(n_cens[censored>0] * log(p_egpd(x = censored[censored>0], kappa = init['kappa0'], sigma_d  = unique(vec_sigma_d)[censored>0], xi = init['xi0']))), 0)
+        contrib.cens1 <- ifelse(any(censored > 0), sum(n_cens[censored>0] * log(p_egpd(x = censored[censored>0], kappa = init['kappa0'], sigma_d  = vec_sigma_d[censored>0], xi = init['xi0']))), 0)
         #for uncensored data
-        contrib.not.cens <- sum(d_egpd(x = vec_p, kappa = kappa_vec, sigma_d = vec_sigma_d, xi = xi_vec))
+        #contrib.not.cens <- sum(d_egpd(x = vec_p, kappa = kappa_vec, sigma_d = vec_sigma_d, xi = xi_vec))
+        contrib.not.cens <- sum(d_egpd(x = sapply(seq_along(durations), function(i) censored_data[[i]]$precip) %>% unlist,
+                                       kappa = kappa_vec, sigma_d = vec_sigma_d_full, xi = xi_vec))
         #sum the two likelihhods
 
         return(-(contrib.cens1+ contrib.not.cens))
@@ -803,8 +841,8 @@ fit_egpd_idf_scaling_models <- function(station_data, durations, declustering_du
     } else{ ###### XI a function ot duration
 
       ##  ****** checck that params are within range
-      #if (init['xi0'] < 0 | init['xi_eta1'] > 0) return(Inf)
-      # if (length(init) == 4 &  init[4] < 0) return(Inf) # check that theta remains positive
+      #if (init['xi0'] < 0 | init['xi_eta1'] > 0) return(1e100)
+      # if (length(init) == 4 &  init[4] < 0) return(1e100) # check that theta remains positive
       if (any(nms == 'theta') &  init['theta'] < 0 ) return(1e100) # check that theta remains positive
 
       if (any(nms == 'eta2') )
@@ -818,74 +856,50 @@ fit_egpd_idf_scaling_models <- function(station_data, durations, declustering_du
       }
       # ******** end check
 
-      vec_p = vec_sigma_d = n_cens =vec_covariate=vec_xi_d= NULL #
-      it = 1
+
       # collate all data in single vectors, arranging them by durations eg
       # vec_precip= c(1,1,1..., 2,2...) contains obs form d =1, to d =n
       if (multi_regime) {
-        for (d in durations) {
-          d_data <- station_data[seq(init_time_step,nrow(station_data),declustering_duration[it]),it]#declustering in time
-          d_data <- na.omit(d_data) # remove NA in obs of staion nei
-          n_cens <- c(n_cens,length(d_data[d_data>0 & d_data < censored[it]])) # count no of obs in nei less than censoring threshold and positive
-          obs_hi_c = d_data[d_data>= censored[it]] # seclect obs that are >= censoring value for station nei
-          obs_hi_c = obs_hi_c[obs_hi_c>0]
-          vec_p <- c(vec_p,  obs_hi_c)
-          covariate_d = rep(d, length(obs_hi_c))
-          vec_covariate = c(vec_covariate, covariate_d)
-
+        vec_sigma_d= sapply(durations, function(d){
           if (d < init['k']) {
             sigma_d = ifelse(any(nms =='theta'),init['sigma01']/(d+init['theta'])^init['eta1'],init['sigma01']/(d)^init['eta1'])
             #xi_d = medi
           } else{
             sigma_d = init['sigma02']/(d)^init['eta2'] #second regime should remain SS, no theta
           }
-
-          vec_sigma_d <- c(vec_sigma_d, rep(sigma_d, length(obs_hi_c)))
-
-          xi_d = (cbind(rep(1, length(obs_hi_c)) ,log(covariate_d)) %*% init[c('xi0','xi_eta1')])
-          vec_xi_d = c(vec_xi_d, (xi_d[,1]))
-          it = it +1
-        }
+          sigma_d
+        })
       } else {
-        #single regime
-        for (d in durations) {
-          d_data <- station_data[seq(init_time_step,nrow(station_data),declustering_duration[it]),it]#declustering in time
-          d_data <- na.omit(d_data) # remove NA in obs of staion nei
-          n_cens <- c(n_cens,length(d_data[d_data>0 & d_data < censored[it]])) # count no of obs in nei less than censoring threshold and positive
-          obs_hi_c = d_data[d_data>= censored[it]] # seclect obs that are >= censoring value for station nei
-          obs_hi_c = obs_hi_c[obs_hi_c>0]
-          vec_p <- c(vec_p,  obs_hi_c)
-          covariate_d = rep(d, length(obs_hi_c))
-          vec_covariate = c(vec_covariate, covariate_d)
+        #here  ONE scaling regime exist
+        vec_sigma_d= sapply(durations, function(d){
+          ifelse(any(nms =='theta'),init['sigma0']/(d+init['theta'])^init['eta'],init['sigma0']/(d)^init['eta'])
+        })
 
-          sigma_d = ifelse(any(nms =='theta'),init['sigma0']/(d+init['theta'])^init['eta'],init['sigma0']/(d)^init['eta']) # init has lecnght of 4 in the case of Simple scaling (no theta)
-          # init has lecnght of 4 in the case of Simple scaling (no theta)
-          vec_sigma_d <- c(vec_sigma_d, rep(sigma_d, length(obs_hi_c)))
 
-          #xi
-          xi_d = (cbind(rep(1, length(obs_hi_c)) ,log(covariate_d)) %*% init[c('xi0','xi_eta1')])
-          vec_xi_d = c(vec_xi_d, (xi_d[,1]))
-          it = it +1
-        }
       }
+      vec_xi_d= sapply(durations, function(d){c(1 ,log(d)) %*% init[c('xi0','xi_eta1')]})
+      vec_xi_d[vec_xi_d<1e-6] = 1e-6
 
 
-      nobs = length(vec_p)
+      vec_sigma_d_full = sapply(seq_along(durations), function(i) rep(vec_sigma_d[i], length(censored_data[[i]]$precip)) )%>% unlist
+      vec_xi_d_full = sapply(seq_along(durations), function(i) rep(vec_xi_d[i], length(censored_data[[i]]$precip)) )%>% unlist
+
+      nobs = length(vec_sigma_d_full)
       kappa_vec = rep(init['kappa0'], nobs)
-      #xi_vec =  rep(init[3], nobs)
+
 
       # do a likelihood fit (with left censoring, depending on whether the censored value is set to zero or otherwise)
 
 
-      vec_xi_d[vec_xi_d<1e-6] = 1e-6
+
 
       if(all(unique(vec_sigma_d)> 0)  & all(unique(vec_xi_d)>= 1e-6) & all(unique(vec_xi_d) < 0.5) ){
         # for left censored data
-        contrib.cens1 <- ifelse(any(censored > 0), sum(n_cens[censored>0] * log(p_egpd(x = censored[censored>0], kappa = init['kappa0'], sigma_d  = unique(vec_sigma_d)[censored>0], xi = unique(vec_xi_d)[censored>0]))), 0)
+        contrib.cens1 <- ifelse(any(censored > 0), sum(n_cens[censored>0] * log(p_egpd(x = censored[censored>0], kappa = init['kappa0'], sigma_d  = vec_sigma_d[censored>0], xi = vec_xi_d[censored>0]))), 0)
         #for uncensored data
-        contrib.not.cens <- sum(d_egpd(x = vec_p, kappa = kappa_vec, sigma_d = vec_sigma_d, xi = vec_xi_d))
+        contrib.not.cens <- sum(d_egpd(x = sapply(seq_along(durations), function(i) censored_data[[i]]$precip) %>% unlist,
+                                       kappa = kappa_vec, sigma_d = vec_sigma_d_full, xi = vec_xi_d_full))
         #sum the two likelihhods
-
         return(-(contrib.cens1+ contrib.not.cens))
       }else{
         return(1e100)
@@ -895,8 +909,8 @@ fit_egpd_idf_scaling_models <- function(station_data, durations, declustering_du
   }
   # optimize the function above
   #message("IDF fitting")
-  par.optim = optim(par=init,fn=LK.EGPD.idf,gr=NULL,station_data=station_data, scaling_break = scaling_break, multi_regime = multi_regime, durations = durations, censored= censored,
-                    declustering_duration = declustering_duration, init_time_step=init_time_step, control = list(maxit = 3000), hessian = FALSE,method="Nelder-Mead")
+  par.optim = optim(par=init,fn=LK.EGPD.idf,gr=NULL, scaling_break = scaling_break, multi_regime = multi_regime, durations = durations, censored= censored,
+                    censored_data =censored_data,  n_cens = n_cens,  control = list(maxit = 3000), hessian = FALSE,method=optim_algo)
 
   #update the optime parameters to retuen the scaling break and sigma02
   if (multi_regime) {
