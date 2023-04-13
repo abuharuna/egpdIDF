@@ -63,11 +63,11 @@ to be added
  ## get the aggrageted data for each of the
  station_data= aggregate_data(sample_data = precipdata, st_code = "SCH",  durations = durations)
 
-
- initial_params = egpdIDF::egpd_idf_init(station_data = station_data,
-                                         durations = durations, fitting_method = "mle",
-                                          declustering_duration =  c(1,2,3,6,10,12, 16,18, 24, 48, 72), auto_fit = F)
- ## check the parameters
+\dontrun{
+ initial_params = egpd_idf_init(station_data = station_data,
+                durations = durations, fitting_method = "mle",
+                declustering_duration =  c(1,2,3,6,10,12, 16,18, 24, 48, 72), auto_fit = FALSE)
+ ## check the fitted egpd parameters for each duration
  initial_params$fits$kappa_param
  initial_params$fits$scale_param
  initial_params$fits$shape_param
@@ -77,18 +77,18 @@ to be added
 
  ## for a good fit, 'nrsme" should be small.
 
- ##  its always good to try use left censoring with 'mle' fit. Lets try, and chekc the 'nrmse' again
- ##  we set "auto_fit=T", "nrmse_tol=0.1"  "use_r_optim=T" , "nrsme_quantile = 0". Check the arguments for their meaning
- initial_params = egpdIDF::egpd_idf_init(station_data = station_data,
-                                         durations = durations, fitting_method = "mle",
-                                         declustering_duration =  c(1,2,3,6,10,12, 16,18, 24, 48, 72),
-                                         auto_fit = T, nrmse_tol = 0.1,use_r_optim = T, nrsme_quantile = 0)
+ ##  its always good to  use left censoring with 'mle' fit. Lets try, and check the 'nrmse' again
+ ##  we set "auto_fit=T", "nrmse_tol=0.1"  "use_r_optim=T" , "nrsme_quantile = 0".
+ ## Check the arguments for their meaning
+ initial_params = egpd_idf_init(station_data = station_data,
+           durations = durations, fitting_method = "mle",
+            declustering_duration =  c(1,2,3,6,10,12, 16,18, 24, 48, 72),
+              auto_fit = TRUE, nrmse_tol = 0.1,use_r_optim = TRUE, nrsme_quantile = 0)
  ## check the quality of the fit
- initial_params$fits$nrsmet
  initial_params$fits$nrsme
  ## check the parameters
  initial_params$fits$kappa_param
  initial_params$fits$scale_param
  initial_params$fits$shape_param
-
+}
 }

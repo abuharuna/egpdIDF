@@ -238,8 +238,10 @@ emperical_levels_idf = function(station_data, declustering_duration, durations, 
 #' @param kappa_fit  a numerical vector  of  egpd 'kappa'  parmater. Same length as \code{ncol(station_data)}
 #' @param sigma_fit same as  \code{kappa_fit} but for egpd 'sigma'
 #' @param xi_fit   same as  \code{kappa_fit} but for egpd shape parammter (xi)
-#' @param nrsme_quantile optional. a number in percentage, or any character eg \code{nrsme_quantile = 90}, the normalized root mean square error will only be computed on excesses of the quantile. Quantile is over ALL  values (zeros included)
+#' @param declustering_duration a vector same length as \code{duration} .Whether the data should be temporally declustered, if yes the time step for each duration, or a vector of 1 otherwise
+#' @param q optional. a number in percentage, or any character eg \code{nrsme_quantile = 90}, the normalized root mean square error will only be computed on excesses of the quantile. Quantile is over ALL  values (zeros included)
 #'  If a character, then a weighted normalized root mean square error will be used.
+#' @param init_time_step  a scalar, eg 1 or 2. The time step to start declustering the data. eg, for hourly data, if  \code{declustering =3} and  \code{init_time_step = 2}, then the 2nd hour will be selected, and then a sequence is applied
 #'
 #' @details
 #'   to be added

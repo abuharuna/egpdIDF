@@ -36,10 +36,10 @@
 #'  ## get the aggrageted data for each of the
 #'  station_data= aggregate_data(sample_data = precipdata, st_code = "SCH",  durations = durations)
 #'
-#'
+#' \dontrun{
 #'  initial_params = egpd_idf_init(station_data = station_data,
-#'                                          durations = durations, fitting_method = "mle",
-#'                                           declustering_duration =  c(1,2,3,6,10,12, 16,18, 24, 48, 72), auto_fit = F)
+#'                 durations = durations, fitting_method = "mle",
+#'                 declustering_duration =  c(1,2,3,6,10,12, 16,18, 24, 48, 72), auto_fit = FALSE)
 #'  ## check the fitted egpd parameters for each duration
 #'  initial_params$fits$kappa_param
 #'  initial_params$fits$scale_param
@@ -51,18 +51,19 @@
 #'  ## for a good fit, 'nrsme" should be small.
 #'
 #'  ##  its always good to  use left censoring with 'mle' fit. Lets try, and check the 'nrmse' again
-#'  ##  we set "auto_fit=T", "nrmse_tol=0.1"  "use_r_optim=T" , "nrsme_quantile = 0". Check the arguments for their meaning
+#'  ##  we set "auto_fit=T", "nrmse_tol=0.1"  "use_r_optim=T" , "nrsme_quantile = 0".
+#'  ## Check the arguments for their meaning
 #'  initial_params = egpd_idf_init(station_data = station_data,
-#'                                          durations = durations, fitting_method = "mle",
-#'                                          declustering_duration =  c(1,2,3,6,10,12, 16,18, 24, 48, 72),
-#'                                          auto_fit = T, nrmse_tol = 0.1,use_r_optim = T, nrsme_quantile = 0)
+#'            durations = durations, fitting_method = "mle",
+#'             declustering_duration =  c(1,2,3,6,10,12, 16,18, 24, 48, 72),
+#'               auto_fit = TRUE, nrmse_tol = 0.1,use_r_optim = TRUE, nrsme_quantile = 0)
 #'  ## check the quality of the fit
 #'  initial_params$fits$nrsme
 #'  ## check the parameters
 #'  initial_params$fits$kappa_param
 #'  initial_params$fits$scale_param
 #'  initial_params$fits$shape_param
-#'
+#' }
 #' @export
 egpd_idf_init <- function(station_data, durations, declustering_duration, init_time_step = 1,
                           fitting_method = "mle", auto_fit = T, nrmse_tol = 0.1,simple_scaling = T, use_r_optim = F, nrsme_quantile = 0){
@@ -303,25 +304,26 @@ local_fit_IDF_h_par  <- function(sample, fitting_method= "mle", auto_fit = T, nr
 #'  ## load the data
 #'  data("precipdata")
 #'
-#'  ## Here the resolution of the data is in 'hours', we want to aggeregate the data up to 72 hours
+#'  ## Here the resolution of the data is 'hours', we want to aggeregate the data up to 72 hours
 #'  ## specify the aggregation durations
 #'
 #'  durations =  c(1,2, 3,  6,  10, 12,  16, 18,  24, 48, 72)
 #'
 #'  ## get the aggrageted data for each of the
-#'  station_data= aggregate_data(sample_data = precipdata, st_code = "SCH",  durations = durations)
-#'
+#' station_data= aggregate_data(sample_data = precipdata, st_code = "SCH",
+#'  durations = durations)
+#' \dontrun{
 #'  ## get initial values
 #'
 #'  initial_params = egpd_idf_init(station_data = station_data,
-#'                                          durations = durations, fitting_method = "mle",
-#'                                          declustering_duration =  c(1,2,3,6,10,12, 16,18, 24, 48, 72),
-#'                                          auto_fit = T, nrmse_tol = 0.1,use_r_optim = T, nrsme_quantile = 0)
+#'              durations = durations, fitting_method = "mle",
+#'                declustering_duration =  c(1,2,3,6,10,12, 16,18, 24, 48, 72),
+#'                auto_fit = T, nrmse_tol = 0.1,use_r_optim = T, nrsme_quantile = 0)
 #'  ## fit the data driven IDF
 #'  fitted_idf = fit_egpd_idf_data_driven(station_data = station_data, durations = durations,
-#'                            declustering_duration = c(1,2, 3,  6,  10, 12,  16, 18,  24, 48, 72),
-#'                            fitting_method = 'mle',  initial_params = initial_params,
-#'                            optim_algo = "BFGS")
+#'              declustering_duration = c(1,2, 3,  6,  10, 12,  16, 18,  24, 48, 72),
+#'              fitting_method = 'mle',  initial_params = initial_params,
+#'               optim_algo = "BFGS")
 #'
 #'  #check 'optim' params, for convergencem etc
 #'  fitted_idf$fitted_params
@@ -335,11 +337,15 @@ local_fit_IDF_h_par  <- function(sample, fitting_method= "mle", auto_fit = T, nr
 #'  xi_fit = fitted_idf$shape_param
 #'
 #'  #compute nrmse to check quality of fit
-#'  nrmse_d = compute_nrsme(station_data, c(1,2,3,6,10,12, 16,18, 24, 48, 72), kappa_fit, sigma_fit, xi_fit, init_time_step = 1, q = 0)
+#'  nrmse_d = compute_nrsme(station_data, c(1,2,3,6,10,12, 16,18, 24, 48, 72),
+#'   kappa_fit, sigma_fit, xi_fit, init_time_step = 1, q = 0)
 #'  nrmse_d
 #'
 #' # Plot the IDF curves
-#' plot_egpdidf_curves(station_data = station_data,  kappa_fit = kappa_fit, sigma_fit = sigma_fit, xi_fit = xi_fit, durations, declustering_duration=c(1,2,3,6,10,12, 16,18, 24, 48, 72), npy = 92, init_time_step=1 )
+#' plot_egpdidf_curves(station_data = station_data,  kappa_fit = kappa_fit,
+#' sigma_fit = sigma_fit, xi_fit = xi_fit, durations,
+#'  declustering_duration=c(1,2,3,6,10,12, 16,18, 24, 48, 72), npy = 92, init_time_step=1 )
+#'  }
 
 #' @export
 fit_egpd_idf_data_driven <- function(station_data, durations, declustering_duration, initial_params,
@@ -595,11 +601,11 @@ fit_egpd_idf_data_driven <- function(station_data, durations, declustering_durat
 #'  station_data= aggregate_data(sample_data = precipdata, st_code = "SCH",  durations = durations)
 #'
 #'  ## get initial values
-#'
+#' \dontrun{
 #'  initial_params = egpd_idf_init(station_data = station_data,
-#'                                          durations = durations, fitting_method = "mle",
-#'                                          declustering_duration =  c(1,2,3,6,10,12, 16,18, 24, 48, 72),
-#'                                          auto_fit = T, nrmse_tol = 0.1,use_r_optim = T, nrsme_quantile = 0)
+#'                     durations = durations, fitting_method = "mle",
+#'                    declustering_duration =  c(1,2,3,6,10,12, 16,18, 24, 48, 72),
+#'                   auto_fit = T, nrmse_tol = 0.1,use_r_optim = T, nrsme_quantile = 0)
 #'  ## fit the data driven IDF
 #'  fitted_idf = fit_egpd_idf_scaling_models(station_data = station_data, durations = durations,
 #'                  censored = initial_params$fits$lower_threshold,
@@ -621,11 +627,15 @@ fit_egpd_idf_data_driven <- function(station_data, durations, declustering_durat
 #'  xi_fit = fitted_idf$shape_param
 #'
 #'  #compute nrmse to check quality of fit
-#'  nrmse_d = compute_nrsme(station_data, c(1,2,3,6,10,12, 16,18, 24, 48, 72), kappa_fit, sigma_fit, xi_fit, init_time_step = 1, q = 0)
+#'  nrmse_d = compute_nrsme(station_data, c(1,2,3,6,10,12, 16,18, 24, 48, 72),
+#'  kappa_fit, sigma_fit, xi_fit, init_time_step = 1, q = 0)
 #'  nrmse_d
 #'
 #' # Plot the IDF curves
-#' plot_egpdidf_curves(station_data = station_data,  kappa_fit = kappa_fit, sigma_fit = sigma_fit, xi_fit = xi_fit, durations, declustering_duration=c(1,2,3,6,10,12, 16,18, 24, 48, 72), npy = 92, init_time_step=1 )
+#' plot_egpdidf_curves(station_data = station_data,  kappa_fit = kappa_fit,
+#'  sigma_fit = sigma_fit, xi_fit = xi_fit, durations,
+#'  declustering_duration=c(1,2,3,6,10,12, 16,18, 24, 48, 72), npy = 92, init_time_step=1 )
+#'  }
 #' @export
 fit_egpd_idf_scaling_models <- function(station_data, durations, declustering_duration, initial_params,
                                         censored,  fitting_method = "mle", simple_scaling = T, multi_regime =F,

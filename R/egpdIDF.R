@@ -16,16 +16,18 @@
 #' @import doParallel
 #' @import parallel
 #' @importFrom extRemes fevd
-#' @import  dplyr
+#' @import ggplot2
+#' @importFrom scales trans_breaks trans_format math_format
 #' @import  stats
+#' @importFrom dplyr group_by mutate summarise_at select rename  summarise arrange group_split
 #' @import  purrr
 #' @import  RcppRoll
 #' @import  tidyr
-#' @import foreach
+#' @importFrom foreach foreach %dopar% %do%
 #' @importFrom graphics legend lines
 NULL
 
-globalVariables(c("duration", "i"))
+globalVariables(c("duration", "i", "x", "y", 'q.mle.U', 'q.mle.L','tr_years', 'tr_quantiles', '.x', 'dur', 'tr_idf', 'Tr'))
 
 #'A fictious hourly  time series of precipitation
 #'

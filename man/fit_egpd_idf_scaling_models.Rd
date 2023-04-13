@@ -18,7 +18,8 @@ fit_egpd_idf_scaling_models(
   auto_fit = T,
   nrmse_tol = 0.1,
   use_r_optim = F,
-  nrsme_quantile = 0
+  nrsme_quantile = 0,
+  optim_algo = "Nelder-Mead"
 )
 }
 \arguments{
@@ -49,6 +50,8 @@ fit_egpd_idf_scaling_models(
 \item{use_r_optim}{logical, defaults  to \code{FALSE}, if yes, \code{optim} will be used to find the best lower censoring values, otherwise, descrete values will be tested}
 
 \item{nrsme_quantile}{a number in percentage, or any character eg \code{nrsme_quantile = 90}, the normalized root mean square error will only be computed on excesses of the quaneile.  If a charanter, then a weighted normalized root mean square error will be used.}
+
+\item{optim_algo}{the \code{optim} algtorthm to use. defaults to \code{"Nelder-Mead" }}
 }
 \value{
 # A list:
@@ -63,4 +66,53 @@ Eight diffent models are considered (simple scaling, General IDF formulation of 
 }
 \details{
 to be added
+}
+\examples{
+ ## load the data
+ data("precipdata")
+
+ ## Here the resolution of the data is in 'hours', we want to aggeregate the data up to 72 hours
+ ## specify the aggregation durations
+
+ durations =  c(1,2, 3,  6,  10, 12,  16, 18,  24, 48, 72)
+
+ ## get the aggrageted data for each of the
+ station_data= aggregate_data(sample_data = precipdata, st_code = "SCH",  durations = durations)
+
+ ## get initial values
+\dontrun{
+ initial_params = egpd_idf_init(station_data = station_data,
+                    durations = durations, fitting_method = "mle",
+                   declustering_duration =  c(1,2,3,6,10,12, 16,18, 24, 48, 72),
+                  auto_fit = T, nrmse_tol = 0.1,use_r_optim = T, nrsme_quantile = 0)
+ ## fit the data driven IDF
+ fitted_idf = fit_egpd_idf_scaling_models(station_data = station_data, durations = durations,
+                 censored = initial_params$fits$lower_threshold,
+                 declustering_duration = c(1,2, 3,  6,  10, 12,  16, 18,  24, 48, 72),
+                 fitting_method = 'mle',  initial_params = initial_params,
+              simple_scaling = T, multi_regime = T, xi_constant = F,
+              init_time_step = 1,auto_fit = F, nrmse_tol = 0.1, use_r_optim = F,
+              nrsme_quantile = 0, optim_algo = "BFGS")
+
+ #check 'optim' params, for convergence etc
+ fitted_idf$fitted_params
+
+ #parameters of the IDF
+ fitted_idf$fitted_params$par
+
+ # fitted egpd parameters for the given durations
+ kappa_fit =  fitted_idf$kappa_param
+ sigma_fit = fitted_idf$scale_param
+ xi_fit = fitted_idf$shape_param
+
+ #compute nrmse to check quality of fit
+ nrmse_d = compute_nrsme(station_data, c(1,2,3,6,10,12, 16,18, 24, 48, 72),
+ kappa_fit, sigma_fit, xi_fit, init_time_step = 1, q = 0)
+ nrmse_d
+
+# Plot the IDF curves
+plot_egpdidf_curves(station_data = station_data,  kappa_fit = kappa_fit,
+ sigma_fit = sigma_fit, xi_fit = xi_fit, durations,
+ declustering_duration=c(1,2,3,6,10,12, 16,18, 24, 48, 72), npy = 92, init_time_step=1 )
+ }
 }

@@ -48,3 +48,50 @@ a 10 parameter IDF model in which the form of the EGPD parameter dependence is e
 \details{
 to be added
 }
+\examples{
+ ## load the data
+ data("precipdata")
+
+ ## Here the resolution of the data is 'hours', we want to aggeregate the data up to 72 hours
+ ## specify the aggregation durations
+
+ durations =  c(1,2, 3,  6,  10, 12,  16, 18,  24, 48, 72)
+
+ ## get the aggrageted data for each of the
+station_data= aggregate_data(sample_data = precipdata, st_code = "SCH",
+ durations = durations)
+\dontrun{
+ ## get initial values
+
+ initial_params = egpd_idf_init(station_data = station_data,
+             durations = durations, fitting_method = "mle",
+               declustering_duration =  c(1,2,3,6,10,12, 16,18, 24, 48, 72),
+               auto_fit = T, nrmse_tol = 0.1,use_r_optim = T, nrsme_quantile = 0)
+ ## fit the data driven IDF
+ fitted_idf = fit_egpd_idf_data_driven(station_data = station_data, durations = durations,
+             declustering_duration = c(1,2, 3,  6,  10, 12,  16, 18,  24, 48, 72),
+             fitting_method = 'mle',  initial_params = initial_params,
+              optim_algo = "BFGS")
+
+ #check 'optim' params, for convergencem etc
+ fitted_idf$fitted_params
+
+ #parameters of the IDF
+ fitted_idf$fitted_params$par
+
+ # fitted egpd parameters for the given durations
+ kappa_fit =  fitted_idf$kappa_param
+ sigma_fit = fitted_idf$scale_param
+ xi_fit = fitted_idf$shape_param
+
+ #compute nrmse to check quality of fit
+ nrmse_d = compute_nrsme(station_data, c(1,2,3,6,10,12, 16,18, 24, 48, 72),
+  kappa_fit, sigma_fit, xi_fit, init_time_step = 1, q = 0)
+ nrmse_d
+
+# Plot the IDF curves
+plot_egpdidf_curves(station_data = station_data,  kappa_fit = kappa_fit,
+sigma_fit = sigma_fit, xi_fit = xi_fit, durations,
+ declustering_duration=c(1,2,3,6,10,12, 16,18, 24, 48, 72), npy = 92, init_time_step=1 )
+ }
+}
