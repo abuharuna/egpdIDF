@@ -1,0 +1,20 @@
+Package: egpdIDF
+Type: Package
+Date: 2023-04-12
+Title: Intensity Duration Frequency model (IDF) using the Extended Generalised Pareto Distribution
+Version: 1.0.0
+Author: Abubakar HARUNA
+Maintainer: Abubakar HARUNA <abbaharuna87@gmail.com>
+Imports: mev, segmented, doParallel, extRemes, dplyr, stats, purrr, RcppRoll, tidyr, foreach
+Description: IDF curves are usually modelled using Generalized Exteme Value distributions (GEV).
+    Here, we consider the three parameter EGPD of Naveau et al 2016 to bulid IDF curves. The package provides the implemenattion
+    of 10 diffent IDF modelling approaches as contained in Haruna et al 2023.
+License: GPL-3
+Encoding: UTF-8
+LazyData: true
+Depends: R (>= 2.10)
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
+RoxygenNote: 7.2.3
