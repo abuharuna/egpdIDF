@@ -16,7 +16,7 @@ q_egpd_idf = function(probs, par, dur) {
   names(quantiles) = "quantiles"
   return(quantiles)
 }
-#
+#just a check
 #function to get the non_exccedance probability for ecah duration d, depending on the return level
 get_non_exc_probs_idf = function(x, y, npy, Tr_vec = c(2, 5, 10, 20, 50, 100), init_time_step=1){
   #x = station_data (df: col = data_d, row = observation)
