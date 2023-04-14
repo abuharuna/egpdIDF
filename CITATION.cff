@@ -3,8 +3,8 @@ message: "If you use this software, please cite it as below."
 authors:
 - family-names: "Haruna"
   given-names: "Abubakar"
-  orcid: "https://orcid.org/0000-0000-0000-0000"
-title: "egpdIDF: Intensity Duration Frequency model (IDF) using the Extended Generalised Pareto Distribution"
+  orcid: "https://orcid.org/0000-0002-0508-6734"
+title: "egpdIDF: Modeling Intensity Duration Frequency Curves (IDF) using the Extended Generalised Pareto Distribution"
 version: 1.0.0
 doi: 10.5281/zenodo.7828750
 date-released: 2023-04-14
