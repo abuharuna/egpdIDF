@@ -203,7 +203,7 @@ plot_egpdidf_curves(station_data = station_data,  kappa_fit = kappa_fit,
  
 
 ```
-
+[![DOI](https://zenodo.org/badge/627360162.svg)](https://zenodo.org/badge/latestdoi/627360162)
 
 # References
 
