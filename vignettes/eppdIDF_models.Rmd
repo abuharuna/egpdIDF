@@ -1,0 +1,19 @@
+---
+title: "Modeling IDF Curves using the Extended Genaralized Pareto Distribution"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Modeling IDF Curves using the Extended Genaralized Pareto Distribution}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(egpdIDF)
+```
