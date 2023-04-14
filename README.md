@@ -1,5 +1,5 @@
 # egpdIDF: Modeling Intensity-Duration-Frequency (IDF) Curves using the Extended Genaralized Pareto Distribution (EGPD)
-
+[![DOI](https://zenodo.org/badge/627360162.svg)](https://zenodo.org/badge/latestdoi/627360162)
 # Introduction
 
 Intensity-Duration-Frequency (IDF) curves provide the link between precipitation  intensity, duration, and non-exceedance frequency (or rather the return period). It is a  very common and useful tool in the area of water resources engineering. IDF curves are  practically used to infer high return levels of rainfall intensities for the hydrological designs of structures such as sewer lines, culverts, drains, dams, dykes, etc. 
@@ -203,7 +203,7 @@ plot_egpdidf_curves(station_data = station_data,  kappa_fit = kappa_fit,
  
 
 ```
-[![DOI](https://zenodo.org/badge/627360162.svg)](https://zenodo.org/badge/latestdoi/627360162)
+
 
 # References
 
