@@ -85,7 +85,7 @@ to be added
                     durations = durations, fitting_method = "mle",
                    declustering_duration =  c(1,2,3,6,10,12, 16,18, 24, 48, 72),
                   auto_fit = T, nrmse_tol = 0.1,use_r_optim = T, nrsme_quantile = 0)
- ## fit the data driven IDF
+ ## fit the scaling IDF model
  fitted_idf = fit_egpd_idf_scaling_models(station_data = station_data, durations = durations,
                  censored = initial_params$fits$lower_threshold,
                  declustering_duration = c(1,2, 3,  6,  10, 12,  16, 18,  24, 48, 72),

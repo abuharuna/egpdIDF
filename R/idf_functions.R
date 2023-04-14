@@ -338,13 +338,13 @@ local_fit_IDF_h_par  <- function(sample, fitting_method= "mle", auto_fit = T, nr
 #'
 #'  #compute nrmse to check quality of fit
 #'  nrmse_d = compute_nrsme(station_data, c(1,2,3,6,10,12, 16,18, 24, 48, 72),
-#'   kappa_fit, sigma_fit, xi_fit, init_time_step = 1, q = 0)
+#'                   kappa_fit, sigma_fit, xi_fit, init_time_step = 1, q = 0)
 #'  nrmse_d
 #'
 #' # Plot the IDF curves
 #' plot_egpdidf_curves(station_data = station_data,  kappa_fit = kappa_fit,
-#' sigma_fit = sigma_fit, xi_fit = xi_fit, durations,
-#'  declustering_duration=c(1,2,3,6,10,12, 16,18, 24, 48, 72), npy = 92, init_time_step=1 )
+#'     sigma_fit = sigma_fit, xi_fit = xi_fit, durations,
+#'     declustering_duration=c(1,2,3,6,10,12, 16,18, 24, 48, 72), npy = 92, init_time_step=1 )
 #'  }
 
 #' @export
@@ -355,7 +355,7 @@ fit_egpd_idf_data_driven <- function(station_data, durations, declustering_durat
 
 
 
-  if (missing(initial_params)) {stop("provide initial paramters")} else{
+  if (missing(initial_params)) {stop("initial_params is missing: run the egpd_idf_init function to obtain the parameters ")} else{
     init =  initial_params$init
     #init = c(init[1],0,log(init[2]),0, init[3], 0)
     station_fit = initial_params$fits
@@ -504,10 +504,10 @@ fit_egpd_idf_data_driven <- function(station_data, durations, declustering_durat
                           n_cens = n_cens, durations = durations, censored = censored, control = list(maxit = 3000), hessian = FALSE,method=optim_algo)
 
         init_temp[pname] = par.optim$par
-        print(c(par.optim$value, par.optim$convergence))
+        #print(c(par.optim$value, par.optim$convergence))
       }
       tol = likl -  par.optim$value
-      print(tol)
+      #print(tol)
       likl = par.optim$value
       i =i +1
     }
@@ -516,7 +516,7 @@ fit_egpd_idf_data_driven <- function(station_data, durations, declustering_durat
 
 
     par.optim =  optim(par=init_ml, fn=LK.EGPD.idf_GLM_new, gr=NULL, free_params = init_ml, scaling_breaks = scaling_breaks, censored_data = censored_data,
-                       n_cens = n_cens, durations = durations, censored = censored, control = list(maxit = 3000), hessian = FALSE,method="BFGS")
+                       n_cens = n_cens, durations = durations, censored = censored, control = list(maxit = 3000), hessian = FALSE,method=optim_algo)
   } else {
     par.optim =  optim(par=init,fn=LK.EGPD.idf_GLM_new,gr=NULL,free_params = init, scaling_breaks = scaling_breaks,  censored_data = censored_data,
                        n_cens = n_cens, durations = durations, censored = censored, control = list(maxit = 3000), hessian = FALSE,method=optim_algo)
@@ -628,13 +628,13 @@ fit_egpd_idf_data_driven <- function(station_data, durations, declustering_durat
 #'
 #'  #compute nrmse to check quality of fit
 #'  nrmse_d = compute_nrsme(station_data, c(1,2,3,6,10,12, 16,18, 24, 48, 72),
-#'  kappa_fit, sigma_fit, xi_fit, init_time_step = 1, q = 0)
+#'            kappa_fit, sigma_fit, xi_fit, init_time_step = 1, q = 0)
 #'  nrmse_d
 #'
 #' # Plot the IDF curves
 #' plot_egpdidf_curves(station_data = station_data,  kappa_fit = kappa_fit,
-#'  sigma_fit = sigma_fit, xi_fit = xi_fit, durations,
-#'  declustering_duration=c(1,2,3,6,10,12, 16,18, 24, 48, 72), npy = 92, init_time_step=1 )
+#'      sigma_fit = sigma_fit, xi_fit = xi_fit, durations,
+#'      declustering_duration=c(1,2,3,6,10,12, 16,18, 24, 48, 72), npy = 92, init_time_step=1 )
 #'  }
 #' @export
 fit_egpd_idf_scaling_models <- function(station_data, durations, declustering_duration, initial_params,
@@ -733,8 +733,12 @@ fit_egpd_idf_scaling_models <- function(station_data, durations, declustering_du
     scaling_break = init['k']
     init = init[! names(init) %in% c('sigma02', 'k')]
   }
-  if (length(censored)==1)
+
+  if (missing(censored)){
+    censored = initial_params$fits$lower_threshold
+  } else if (length(censored)==1){
     censored = censored/durations
+  }
 
   #preparae tha data into a suitable format ----
   n_cens = purrr::map_dbl(seq_along(declustering_duration), function(d){
