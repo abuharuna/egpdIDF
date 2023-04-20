@@ -107,12 +107,12 @@ to be added
 
  #compute nrmse to check quality of fit
  nrmse_d = compute_nrsme(station_data, c(1,2,3,6,10,12, 16,18, 24, 48, 72),
- kappa_fit, sigma_fit, xi_fit, init_time_step = 1, q = 0)
+           kappa_fit, sigma_fit, xi_fit, init_time_step = 1, q = 0)
  nrmse_d
 
 # Plot the IDF curves
 plot_egpdidf_curves(station_data = station_data,  kappa_fit = kappa_fit,
- sigma_fit = sigma_fit, xi_fit = xi_fit, durations,
- declustering_duration=c(1,2,3,6,10,12, 16,18, 24, 48, 72), npy = 92, init_time_step=1 )
+     sigma_fit = sigma_fit, xi_fit = xi_fit, durations,
+     declustering_duration=c(1,2,3,6,10,12, 16,18, 24, 48, 72), npy = 92, init_time_step=1 )
  }
 }

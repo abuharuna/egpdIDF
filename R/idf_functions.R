@@ -491,13 +491,14 @@ fit_egpd_idf_data_driven <- function(station_data, durations, declustering_durat
 
 
   if (use_mle_init) {
+    message("pairwise likelihood fit. iterations:")
     i = 1
     tol = 10000
     likl = LK.EGPD.idf_GLM_new(init =init, free_params = init,  scaling_breaks = scaling_breaks, censored_data = censored_data,
                                n_cens = n_cens, durations = durations, censored = censored)
     init_temp = init
     while (tol > 0.05) {
-      message(i)
+      cat(-i)
       for (pp in c("ka", "si", "xi")) {
         pname =  which(substr(names(init), 1, 2) == pp)
         par.optim = optim(par=init_temp[pname], fn=LK.EGPD.idf_GLM_new, gr=NULL, free_params = init_temp, scaling_breaks = scaling_breaks, censored_data = censored_data,
