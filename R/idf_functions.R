@@ -10,10 +10,11 @@
 #' @param declustering_duration a vector same length as \code{duration} .Whether the data should be temporally declustered, if yes the time step for each duration, or a vector of 1 otherwise
 #' @param init_time_step  a scalar, eg 1 or 2. The time step to start declustering the data. eg, for hourly data, if  \code{declustering =3} and  \code{init_time_step = 2}, then the 2nd hour will be selected, and then a sequence is applied
 #' @param fitting_method eiither \code{"mle"} for maximum likelihood or \code{"pwm"} for probability weighted momoments. Defaults to \code{"mle"}
+#' @param left_censoring_value a scalar or vector of length(durations), defaults to \code{0}. The left censoring value to be applied to data of each duration. If a scalar is given, it will be divided (scaled) by durations. It will be ignored if  \code{auto_fit = TRUE}.
 #' @param auto_fit logical, whether an automatic fit is to be done to find a censoring threshold that minimizes the normalized root mean square error; defaults to \code{TRUE}
 #' @param nrmse_tol a scalar, defaults to \code{0.1}. defaines a relatively good egpd fit. If higher, and \code{auto_fit=TRUE}, automatic fit is done
 #' @param simple_scaling logical, defaults to \code{TRUE}, defines the initial values values that would be returned
-#' @param use_r_optim logical, defaults  to \code{FALSE}, if yes, \code{optim} will be used to find the best lower censoring values, otherwise, descrete values will be tested
+#' @param use_r_optim logical, defaults  to \code{FALSE}, if yes, \code{optim} will be used to find the best lower censoring values, otherwise, discrete values will be tested
 #' @param nrsme_quantile a number in percentage, or any character eg \code{nrsme_quantile = 90}, the normalized root mean square error will only be computed on excesses of the quaneile.  If a charanter, then a weighted normalized root mean square error will be used.
 #'
 #' @details
@@ -66,16 +67,16 @@
 #' }
 #' @export
 egpd_idf_init <- function(station_data, durations, declustering_duration, init_time_step = 1,
-                          fitting_method = "mle", auto_fit = T, nrmse_tol = 0.1,simple_scaling = T, use_r_optim = F, nrsme_quantile = 0){
+                          fitting_method = "mle", left_censoring_value = 0,  auto_fit = T, nrmse_tol = 0.1,simple_scaling = T, use_r_optim = F, nrsme_quantile = 0){
 
   # fit the data for each duration seperately
   if (use_r_optim) { # r optim function used to find the best lower_censoring; slower but find the best threshold
-    station_fit <- local_fit_IDF_h_par(sample = station_data, fitting_method= fitting_method, auto_fit = auto_fit, nrmse_tol = nrmse_tol,
+    station_fit <- local_fit_IDF_h_par(sample = station_data, fitting_method= fitting_method, left_censoring_value =left_censoring_value, auto_fit = auto_fit, nrmse_tol = nrmse_tol,
                                        low_th = c(seq(0,1.2,0.1)), durations = durations, declustering_duration = declustering_duration,
                                        init_time_step=init_time_step, q = nrsme_quantile)
 
   } else{ # here discrete values of lower threshold are tested, its possible to miss the best value
-    station_fit <- local_fit_IDF_h(sample = station_data, fitting_method= fitting_method, auto_fit = auto_fit, nrmse_tol = nrmse_tol,
+    station_fit <- local_fit_IDF_h(sample = station_data, fitting_method= fitting_method, left_censoring_value =left_censoring_value, auto_fit = auto_fit, nrmse_tol = nrmse_tol,
                                    low_th = c(seq(0,1.2,0.1)), durations = durations, declustering_duration = declustering_duration,
                                    init_time_step=init_time_step, q = nrsme_quantile)
 
@@ -125,14 +126,17 @@ prepare_idf_obj <-function(fit_obj, simple_scaling = T, durations){
 
 
 ### For hourly resolution
-local_fit_IDF_h  <- function(sample, fitting_method= "mle", auto_fit = T, nrmse_tol = 0.1, low_th = c(seq(0,1,0.1)), durations,
+local_fit_IDF_h  <- function(sample, fitting_method= "mle", left_censoring_value = 0, auto_fit = T, nrmse_tol = 0.1, low_th = c(seq(0,1,0.1)), durations,
                              declustering_duration, init_time_step=1, q = 0){
-  starting_c = 0#ifelse(fitting_method== "mle", 0.5,0)
+  if (length(left_censoring_value) ==  1 ){
+    left_censoring_value = left_censoring_value/durations #ifelse(fitting_method== "mle", 0.5,0)
+  }
+
   scale_param <- c()
   shape_param <- c()
   kappa_param <- c()
   rmse <- c()
-  lower_c <- rep(starting_c, ncol(sample))/durations
+  lower_c <- rep(0, ncol(sample))/durations
   rounding_c <- rep(0, ncol(sample))/durations
   cens_thresholds_init = expand.grid(low_th = low_th, rounding= c(0))
   for (i in 1:ncol(sample)) {
@@ -142,7 +146,7 @@ local_fit_IDF_h  <- function(sample, fitting_method= "mle", auto_fit = T, nrmse_
     inits = fevd(data, method = "MLE", type="GP", threshold=0, optim.args=list(method="L-BFGS-B", lower =c(0.1, 0.0001), upper = c(40, 0.3))  )$results$par
 
     extgp <- fit.extgp(data = data[data>0], model=1, method = fitting_method, init =  c(0.9, inits) ,
-                       censoring=c(starting_c/durations[i],Inf), rounded = rounding_c[i], confint = F,  plots = F, R = 1)
+                       censoring=c(left_censoring_value[i],Inf), rounded = rounding_c[i], confint = F,  plots = F, R = 1)
     kappa_param[i] <- ifelse(fitting_method=="mle", extgp$fit$mle[1], extgp$fit$pwm[1] )
     scale_param[i] <- ifelse(fitting_method=="mle", extgp$fit$mle[2], extgp$fit$pwm[2] )
     shape_param[i] <- ifelse(fitting_method=="mle", extgp$fit$mle[3], extgp$fit$pwm[3] )
@@ -211,9 +215,12 @@ auto_egpd_fit = function(data, fitting_method , inits, lower_cens, q = 0){
 
 #local fit of data with intensity per hour
 # for each packge used, r optim used to fine the best lower cenosirng threholds
-local_fit_IDF_h_par  <- function(sample, fitting_method= "mle", auto_fit = T, nrmse_tol = 0.05,  low_th = c(seq(0,1,0.1)),
+local_fit_IDF_h_par  <- function(sample, fitting_method= "mle", left_censoring_value = 0, auto_fit = T, nrmse_tol = 0.05,  low_th = c(seq(0,1,0.1)),
                                  durations, declustering_duration, init_time_step=1, q = 0){
   #rmse = c()
+  if (length(left_censoring_value) ==  1 ){
+    left_censoring_value = left_censoring_value/durations #ifelse(fitting_method== "mle", 0.5,0)
+  }
   starting_c =0# ifelse(fitting_method== "mle", 0.5,0)
   #cens_thresholds = expand.grid(low_th = c(1,2,5), rounding= c(0.1, 1, 2, 2.5))
   n.cores <- min(5, length(durations))
@@ -225,19 +232,13 @@ local_fit_IDF_h_par  <- function(sample, fitting_method= "mle", auto_fit = T, nr
     data <- sample[seq(init_time_step,nrow(sample),declustering_duration[i]),i]
     data = na.omit(data)
     inits = fevd(data, method = "MLE", type="GP", threshold=0, optim.args=list(method="L-BFGS-B", lower =c(0.1, 0.0001), upper = c(100, 0.1))  )$results$par
-    lower_c = starting_c/durations[i]
+    lower_c =left_censoring_value[i]
     extgp <- fit.extgp(data = data[data>0], model=1, method = fitting_method, init =  c(0.9, inits) ,
                        censoring=c(lower_c,Inf), rounded = 0, confint = F,  plots = F, R = 1)
     kappa <-  extgp[[1]][[1]][1]
     scale <-  extgp[[1]][[1]][2]
     shape <-  extgp[[1]][[1]][3]
-    # nrmse computation
-    #*normalized rmse to track quality of qqplot *******#
-    #sorted_data = sort(data[data>0], decreasing = F)
-    #empirical <- data.frame(d = sorted_data, probs = (rank(sorted_data, ties.method = "average"))/(length(data[data>0])+1))
-    #mle = qextgp(p=empirical$probs, prob=NA, kappa= kappa, delta=NA, sigma=scale, xi= shape, type=1)
-    #top_5 <- ceiling(length(empirical$d)*.95):length(empirical$d)
-    #rmse = sqrt(mean((mle - empirical$d)^2))/mean(data[data>0], na.rm=T)
+
     rmse = nrmse_idf(data ,kappa= kappa, sigma=scale, xi= shape, q = q)
     #* if autofit, then we vary the censoring thresholds and compute nrmse each time. finally we retain the params with the best fit (least nrmse)
     if (auto_fit & rmse>  nrmse_tol) {
@@ -287,7 +288,7 @@ local_fit_IDF_h_par  <- function(sample, fitting_method= "mle", auto_fit = T, nr
 #' @param durations  a (vector) of durations (same length as ncol of station_data)
 #' @param declustering_duration a vector same length as \code{duration} .Whether the data should be temporally declustered, if yes the time step for each duration, or a vector of 1 otherwise
 #' @param initial_params an object returned by \code{egpd_idf_init}.
-#' @param censored a scalar or vector of \code{length(durations)}, for the left censoring to be applied to data of each duration. If a scalar is given, it will be divided by \code{durations}
+#' @param left_censoring_value a scalar or vector of \code{length(durations)} for the left censoring to be applied to data of each duration. If a scalar is given, it will be divided by \code{durations}
 #' @param init_time_step  a scalar, eg 1 or 2. The time step to start declustering the data. eg, for hourly data, if  \code{declustering =3} and  \code{init_time_step = 2}, then the 2nd hour will be selected, and then a sequence is applied
 #' @param fitting_method either \code{"mle"} for maximum likelihood or \code{"pwm"} for probability weighted momoments. Defaults to \code{"mle"}
 #' @param use_mle_init logical, defaults  to \code{FALSE}, if yes, an iterative pairwise likelohoof fitting is done. See ...
@@ -349,24 +350,25 @@ local_fit_IDF_h_par  <- function(sample, fitting_method= "mle", auto_fit = T, nr
 
 #' @export
 fit_egpd_idf_data_driven <- function(station_data, durations, declustering_duration, initial_params,
-                                         censored,   fitting_method = "mle", init_time_step=1,
+                                     left_censoring_value,   fitting_method = "mle", init_time_step=1,
                                         use_mle_init =F,  optim_algo = "Nelder-Mead"){
 
+  if (missing(initial_params)) {
+    stop("initial_params is missing: run the egpd_idf_init function to obtain the parameters ")
 
-
-
-  if (missing(initial_params)) {stop("initial_params is missing: run the egpd_idf_init function to obtain the parameters ")} else{
+  } else {
     init =  initial_params$init
     #init = c(init[1],0,log(init[2]),0, init[3], 0)
     station_fit = initial_params$fits
   }
 
-  if (missing(censored)){
-    censored = initial_params$fits$lower_threshold
-  } else if (length(censored)==1){
-    censored = censored/durations
-  }
 
+  if (missing(left_censoring_value)){
+    left_censoring_value = initial_params$fits$lower_threshold
+  } else if (length(left_censoring_value)==1){
+    left_censoring_value = censored/durations
+  }
+  censored  = left_censoring_value
 
   #xxx = fit_segmented(paramet = initial_params$fits$kappa_param, covar = durations)
   init_kappa = find_init_linear_models(paramet = initial_params$fits$kappa_param, covar = durations, model_type = 'log_log_MR', param_name = 'kappa')
@@ -569,7 +571,7 @@ fit_egpd_idf_data_driven <- function(station_data, durations, declustering_durat
 #' @param durations  a (vector) of durations (same length as ncol of station_data)
 #' @param declustering_duration a vector same length as \code{duration} .Whether the data should be temporally declustered, if yes the time step for each duration, or a vector of 1 otherwise
 #' @param initial_params an object returned by \code{egpd_idf_init}. Can be omitted, then the \code{egpd_idf_init} will be implicitly called to find initial values
-#' @param censored a scalar or vector of \code{length(durations)}, for the left censoring to be applied to data of each duration. If a scalar is given, it will be divided by \code{durations}
+#' @param left_censoring_value a scalar or vector of \code{length(durations)},defaults to \code{0},  for the left censoring to be applied to data of each duration. If a scalar is given, it will be divided by \code{durations}.  It will be ignored if  \code{auto_fit = TRUE}.
 #' @param init_time_step  a scalar, eg 1 or 2. The time step to start declustering the data. eg, for hourly data, if  \code{declustering =3} and  \code{init_time_step = 2}, then the 2nd hour will be selected, and then a sequence is applied
 #' @param fitting_method either \code{"mle"} for maximum likelihood or \code{"pwm"} for probability weighted momoments. Defaults to \code{"mle"}
 #' @param simple_scaling logical, defaults to \code{TRUE}, defines the initial values values that would be returned
@@ -609,7 +611,7 @@ fit_egpd_idf_data_driven <- function(station_data, durations, declustering_durat
 #'                   auto_fit = T, nrmse_tol = 0.1,use_r_optim = T, nrsme_quantile = 0)
 #'  ## fit the scaling IDF model
 #'  fitted_idf = fit_egpd_idf_scaling_models(station_data = station_data, durations = durations,
-#'                  censored = initial_params$fits$lower_threshold,
+#'                  left_censoring_value = initial_params$fits$lower_threshold,
 #'                  declustering_duration = c(1,2, 3,  6,  10, 12,  16, 18,  24, 48, 72),
 #'                  fitting_method = 'mle',  initial_params = initial_params,
 #'               simple_scaling = T, multi_regime = T, xi_constant = F,
@@ -639,82 +641,42 @@ fit_egpd_idf_data_driven <- function(station_data, durations, declustering_durat
 #'  }
 #' @export
 fit_egpd_idf_scaling_models <- function(station_data, durations, declustering_duration, initial_params,
-                                        censored,  fitting_method = "mle", simple_scaling = T, multi_regime =F,
+                                        left_censoring_value = 0,  fitting_method = "mle", simple_scaling = T, multi_regime =F,
                                         xi_constant = T, init_time_step=1, auto_fit = T,nrmse_tol =0.1,use_r_optim=F,
                                         nrsme_quantile =0, optim_algo = "Nelder-Mead" ){
 
 
 
   if (missing(initial_params)) {
-    message("initial fittings")
-    # fit the data for each duration seperately
-    if (use_r_optim) { # r optim function used to find the best lower_censoring; slower but find the best threshold
-      station_fit <- local_fit_IDF_h_par(sample = station_data, fitting_method= fitting_method, auto_fit = auto_fit, nrmse_tol = nrmse_tol,
-                                         low_th = c(seq(0,1.2,0.1)), durations = durations, declustering_duration = declustering_duration,
-                                         init_time_step=init_time_step, q = nrsme_quantile)
+    message("finding initial parameters: fitting egpd to each data separately")
 
-    } else{ # here discrete values of lower threshold are tested, its possible to miss the best value
-      station_fit <- local_fit_IDF_h(sample = station_data, fitting_method= fitting_method, auto_fit = auto_fit, nrmse_tol = nrmse_tol,
-                                     low_th = c(seq(0,1.2,0.1)), durations = durations, declustering_duration = declustering_duration,
-                                     init_time_step=init_time_step, q = nrsme_quantile)
-
-    }
-
-    #extract the fitted parpams
-    sigma_vec = station_fit$scale_param
-    kappa_vec = station_fit$kappa_param
-    xi_vec = station_fit$shape_param
-
-    # estimaete the params of the IDF
-    # by definiton, only sigma of EGPD shows scaling
-    lmsig <- lm(log(sigma_vec)~log(durations))
-    sigma0 = exp(coefficients(lmsig)[1]) # intercept of the fit
-    eta0 =  -(coefficients(lmsig)[2]) # -ve slope of the fit
-
-    # kappa and xi should be uniform (indepernedent of duration)
-    kappa0 = median(kappa_vec)
-
-    #xi is dependent on duration, we fit a spline relationship
-    if (!xi_constant){
-      xi_fit = fit_linear_model(initial_params$fits$shape_param, durations, model_type = 'linear_log_SR')
-    }
-
-
-
-    #if xi is taken as INDependent of duration
-    xi0 = median(xi_vec)
-
-    #initial theta
-    theta0 = 0
-
-    init = c(kappa0, sigma0, xi0, eta0)
-    names(init) = c("kappa0", "sigma0", "xi0", "eta")
-
-    #if not simple scaling, then we need to include theta
-    if (!simple_scaling) {
-      init[5] = theta0
-      names(init)[5] = "theta"
-    }
-  } else{
-    init =  initial_params$init
-    if (!simple_scaling) {
-      init[5] = 0
-      names(init)[5] = "theta"
-    }
-    xi_vec = initial_params$fits$shape_param[colnames(station_data)]
-    if(!xi_constant){
-      init_xi = lm((xi_vec)~log(durations))$coefficients
-      names(init_xi) = c('xi0', 'xi_eta1')
-      #here we want the initial intercep > 0 and -ve slope
-      if (init_xi['xi0'] < 0)
-        init_xi['xi0'] = -init_xi['xi0']
-      if (init_xi['xi_eta1'] > 0)
-        init_xi['xi_eta1'] = -init_xi['xi_eta1']
-
-      init[c('xi0', 'xi_eta1')] = init_xi
-    }
+    initial_params = egpd_idf_init(station_data = station_data, durations = durations ,declustering_duration = declustering_duration,
+                                   init_time_step = init_time_step, fitting_method = fitting_method, left_censoring_value = left_censoring_value,
+                                    auto_fit = auto_fit, nrmse_tol = nrmse_tol,simple_scaling =  simple_scaling,
+                                   use_r_optim =use_r_optim, nrsme_quantile = nrsme_quantile)
 
   }
+  message("Fitting the IDF model")
+  #init parametres of the idf
+  init =  initial_params$init
+  if (!simple_scaling) {
+    init[5] = 0
+    names(init)[5] = "theta"
+  }
+  xi_vec = initial_params$fits$shape_param[colnames(station_data)]
+  if(!xi_constant){
+    init_xi = lm((xi_vec)~log(durations))$coefficients
+    names(init_xi) = c('xi0', 'xi_eta1')
+    #here we want the initial intercep > 0 and -ve slope
+    if (init_xi['xi0'] < 0)
+      init_xi['xi0'] = -init_xi['xi0']
+    if (init_xi['xi_eta1'] > 0)
+      init_xi['xi_eta1'] = -init_xi['xi_eta1']
+
+    init[c('xi0', 'xi_eta1')] = init_xi
+  }
+
+
   scaling_break = NULL
   if (multi_regime) {
     #fit segmented, TWO regimes exist
@@ -735,12 +697,12 @@ fit_egpd_idf_scaling_models <- function(station_data, durations, declustering_du
     init = init[! names(init) %in% c('sigma02', 'k')]
   }
 
-  if (missing(censored)){
-    censored = initial_params$fits$lower_threshold
-  } else if (length(censored)==1){
-    censored = censored/durations
-  }
-
+  # if (missing(left_censoring_value)){
+  #   left_censoring_value = initial_params$fits$lower_threshold
+  # } else if (length(left_censoring_value)==1){
+  #   left_censoring_value = left_censoring_value/durations
+  # }
+  censored  = initial_params$fits$lower_threshold
   #preparae tha data into a suitable format ----
   n_cens = purrr::map_dbl(seq_along(declustering_duration), function(d){
 

@@ -9,7 +9,7 @@ fit_egpd_idf_scaling_models(
   durations,
   declustering_duration,
   initial_params,
-  censored,
+  left_censoring_value = 0,
   fitting_method = "mle",
   simple_scaling = T,
   multi_regime = F,
@@ -31,7 +31,7 @@ fit_egpd_idf_scaling_models(
 
 \item{initial_params}{an object returned by \code{egpd_idf_init}. Can be omitted, then the \code{egpd_idf_init} will be implicitly called to find initial values}
 
-\item{censored}{a scalar or vector of \code{length(durations)}, for the left censoring to be applied to data of each duration. If a scalar is given, it will be divided by \code{durations}}
+\item{left_censoring_value}{a scalar or vector of \code{length(durations)},defaults to \code{0},  for the left censoring to be applied to data of each duration. If a scalar is given, it will be divided by \code{durations}.  It will be ignored if  \code{auto_fit = TRUE}.}
 
 \item{fitting_method}{either \code{"mle"} for maximum likelihood or \code{"pwm"} for probability weighted momoments. Defaults to \code{"mle"}}
 
@@ -87,7 +87,7 @@ to be added
                   auto_fit = T, nrmse_tol = 0.1,use_r_optim = T, nrsme_quantile = 0)
  ## fit the scaling IDF model
  fitted_idf = fit_egpd_idf_scaling_models(station_data = station_data, durations = durations,
-                 censored = initial_params$fits$lower_threshold,
+                 left_censoring_value = initial_params$fits$lower_threshold,
                  declustering_duration = c(1,2, 3,  6,  10, 12,  16, 18,  24, 48, 72),
                  fitting_method = 'mle',  initial_params = initial_params,
               simple_scaling = T, multi_regime = T, xi_constant = F,

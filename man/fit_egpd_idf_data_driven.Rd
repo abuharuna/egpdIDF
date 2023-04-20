@@ -9,7 +9,7 @@ fit_egpd_idf_data_driven(
   durations,
   declustering_duration,
   initial_params,
-  censored,
+  left_censoring_value,
   fitting_method = "mle",
   init_time_step = 1,
   use_mle_init = F,
@@ -25,7 +25,7 @@ fit_egpd_idf_data_driven(
 
 \item{initial_params}{an object returned by \code{egpd_idf_init}.}
 
-\item{censored}{a scalar or vector of \code{length(durations)}, for the left censoring to be applied to data of each duration. If a scalar is given, it will be divided by \code{durations}}
+\item{left_censoring_value}{a scalar or vector of \code{length(durations)} for the left censoring to be applied to data of each duration. If a scalar is given, it will be divided by \code{durations}}
 
 \item{fitting_method}{either \code{"mle"} for maximum likelihood or \code{"pwm"} for probability weighted momoments. Defaults to \code{"mle"}}
 
