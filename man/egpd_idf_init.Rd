@@ -25,21 +25,23 @@ egpd_idf_init(
 
 \item{declustering_duration}{a vector same length as \code{duration} .Whether the data should be temporally declustered, if yes the time step for each duration, or a vector of 1 otherwise}
 
-\item{init_time_step}{a scalar, eg 1 or 2. The time step to start declustering the data. eg, for hourly data, if  \code{declustering =3} and  \code{init_time_step = 2}, then the 2nd hour will be selected, and then a sequence is applied}
+\item{init_time_step}{a scalar, eg 1 or 2. The time step to start declustering the data. eg, for hourly data, if  \code{declustering =3} and  \code{init_time_step = 2}, then the 2nd timestep will be selected, and then a sequence is applied}
 
 \item{fitting_method}{eiither \code{"mle"} for maximum likelihood or \code{"pwm"} for probability weighted momoments. Defaults to \code{"mle"}}
 
 \item{left_censoring_value}{a scalar or vector of length(durations), defaults to \code{0}. The left censoring value to be applied to data of each duration. If a scalar is given, it will be divided (scaled) by durations. It will be ignored if  \code{auto_fit = TRUE}.}
 
-\item{auto_fit}{logical, whether an automatic fit is to be done to find a censoring threshold that minimizes the normalized root mean square error; defaults to \code{TRUE}}
+\item{auto_fit}{logical, whether an automatic fit is to be done to find a censoring threshold that minimizes the normalized root mean square error; defaults to \code{TRUE}. Otherwise  the values in \code{left_censoring_value } will be used.}
 
 \item{nrmse_tol}{a scalar, defaults to \code{0.1}. defaines a relatively good egpd fit. If higher, and \code{auto_fit=TRUE}, automatic fit is done}
 
 \item{simple_scaling}{logical, defaults to \code{TRUE}, defines the initial values values that would be returned}
 
-\item{use_r_optim}{logical, defaults  to \code{FALSE}, if yes, \code{optim} will be used to find the best lower censoring values, otherwise, discrete values will be tested}
+\item{use_r_optim}{logical, defaults  to \code{FALSE}, if yes, the code will be paralleled using \code{foreach}. And if in addition to  \code{use_r_optim = T},  \code{auto_fit = TRUE},
+then  \code{optim} will be used to find the best lower censoring values. Otherwise (that is if \code{auto_fit = FALSE}), no automatic left censoring will be called, and only the values in \code{left_censoring_value } will be used in the paralleled fitting.}
 
-\item{nrsme_quantile}{a number in percentage, or any character eg \code{nrsme_quantile = 90}, the normalized root mean square error will only be computed on excesses of the quaneile.  If a charanter, then a weighted normalized root mean square error will be used.}
+\item{nrsme_quantile}{a number in percentage, or any character eg \code{nrsme_quantile = 90}, the normalized root mean square error will only be computed on excesses of the quaneile.  If a charanter, then a weighted normalized root mean square error will be used.
+Only used if both \code{use_r_optim = T} and  \code{auto_fit = TRUE}}
 }
 \value{
 # A list:

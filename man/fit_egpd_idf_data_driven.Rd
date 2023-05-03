@@ -29,11 +29,11 @@ fit_egpd_idf_data_driven(
 
 \item{fitting_method}{either \code{"mle"} for maximum likelihood or \code{"pwm"} for probability weighted momoments. Defaults to \code{"mle"}}
 
-\item{init_time_step}{a scalar, eg 1 or 2. The time step to start declustering the data. eg, for hourly data, if  \code{declustering =3} and  \code{init_time_step = 2}, then the 2nd hour will be selected, and then a sequence is applied}
+\item{init_time_step}{a scalar, eg 1 or 2. The time step to start declustering the data. eg, for hourly data, if  \code{declustering =3} and  \code{init_time_step = 2}, then the 2nd timestep will be selected, and then a sequence is applied}
 
 \item{use_mle_init}{logical, defaults  to \code{FALSE}, if yes, an iterative pairwise likelohoof fitting is done. See ...}
 
-\item{optim_algo}{the \code{optim} algtorthm to use. defaults to \code{"Nelder-Mead" }}
+\item{optim_algo}{the \code{optim} algorithm to use. defaults to \code{"Nelder-Mead" }}
 }
 \value{
 # A list:
