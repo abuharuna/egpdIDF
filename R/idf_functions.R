@@ -35,14 +35,16 @@
 #'
 #' ## try a couple of left censoring values, and check the nRMSE, and the corresponding qqplot
 #' lapply(seq(1,3,0.5), function(x){
-#'   fit = fit_egpd(precipdata$SCH, declustering_duration = 3,  left_censoring_value = x , plot = T)
+#'   fit = fit_egpd(precipdata$SCH, declustering_duration = 3,  left_censoring_value = x ,
+#'   plot = T)
 #'   print(fit$nRMSE)
 #'   fit$qqplot +
 #'    labs(subtitle = paste0("nRMSE = ", round(fit$nRMSE, 3)))
 #' })
 #'
 #' ## Now try fiitng using PWM method
-#' fit_egpd(precipdata$SCH, fitting_method = "pwm", declustering_duration = 3, left_censoring_value = 0 , plot = T)
+#' fit_egpd(precipdata$SCH, fitting_method = "pwm", declustering_duration = 3,
+#' left_censoring_value = 0 , plot = T)
 #' }
 #'
 #' @export
@@ -54,7 +56,7 @@ fit_egpd <- function(data, fitting_method = "mle", init, declustering_duration=1
   data = data[data>0]
 
   if (missing(init)) {
-    inits = extRemes::fevd(data, method = "MLE", type="GP", threshold=0, optim.args=list(method="L-BFGS-B", lower =c(0.1, 0.0001), upper = c(100, 0.2))  )$results$par
+    inits = extRemes::fevd(data, method = "MLE", type="GP", threshold=0, optim.args=list(method="L-BFGS-B", lower =c(0.1, 0.0001), upper = c(100, 0.1))  )$results$par
     init = c(0.9, inits)
   }
 
@@ -69,9 +71,10 @@ fit_egpd <- function(data, fitting_method = "mle", init, declustering_duration=1
 
       #### OUTPUT
       # Likelihood value
-      if(all(init[c("kappa", "sigma")] > 0.1 ) &
+      if(init[c('kappa')] > 0.05  &
+         init[c('sigma')] > 0.02  &
          init[c('kappa')] <= 3 &
-         init[c('xi')] < 0.5 &
+         init[c('xi')] < 0.4 &
          init[c('xi')] > 10^(-6) ){
 
         # for left censored data
@@ -198,12 +201,12 @@ egpd_idf_init <- function(station_data, durations, declustering_duration, init_t
 
   # fit the data for each duration seperately
   if (use_r_optim) { # r optim function used to find the best lower_censoring; slower but find the best threshold
-    station_fit <- local_fit_IDF_h_par(sample = station_data, fitting_method= fitting_method, left_censoring_value =left_censoring_value, auto_fit = auto_fit, nrmse_tol = nrmse_tol,
+    station_fit <- local_fit_IDF_h_par(sample = data.frame(station_data), fitting_method= fitting_method, left_censoring_value =left_censoring_value, auto_fit = auto_fit, nrmse_tol = nrmse_tol,
                                        low_th = c(seq(0,1.2,0.1)), durations = durations, declustering_duration = declustering_duration,
                                        init_time_step=init_time_step, q = nrsme_quantile)
 
   } else{ # here discrete values of lower threshold are tested, its possible to miss the best value
-    station_fit <- local_fit_IDF_h(sample = station_data, fitting_method= fitting_method, left_censoring_value =left_censoring_value, auto_fit = auto_fit, nrmse_tol = nrmse_tol,
+    station_fit <- local_fit_IDF_h(sample = data.frame(station_data), fitting_method= fitting_method, left_censoring_value =left_censoring_value, auto_fit = auto_fit, nrmse_tol = nrmse_tol,
                                    low_th = c(seq(0,1.2,0.1)), durations = durations, declustering_duration = declustering_duration,
                                    init_time_step=init_time_step, q = nrsme_quantile)
 
@@ -324,6 +327,8 @@ local_fit_IDF_h  <- function(sample, fitting_method= "mle", left_censoring_value
   return(list("sample" = sample, "scale_param" = scale_param, "shape_param" = shape_param, "kappa_param"= kappa_param,
               "nrsme" = rmse, "lower_threshold"= lower_c, "rounding" = rounding_c))
 }
+
+#' @export
 # Function linked to the automatic lower censoring threshold determination in the EGPD fit
 #this fucntion computes the NRMSE corresponding to a particular choice of threshold.
 # it is minimized by the optim fucntion called in the **local_fit_IDF_h_auto** function above
@@ -383,7 +388,7 @@ local_fit_IDF_h_par  <- function(sample, fitting_method= "mle", left_censoring_v
     rmse_o = rmse = nrmse_idf(data ,kappa= kappa, sigma=scale, xi= shape, q = q)
     #* if autofit, then we vary the censoring thresholds and compute nrmse each time. finally we retain the params with the best fit (least nrmse)
     if (auto_fit & rmse>  nrmse_tol) {
-      result = optim(par = 1, fn = auto_egpd_fit, gr = NULL, data = data, fitting_method = fitting_method, q = q,
+      result = optim(par = 0.5, fn = auto_egpd_fit, gr = NULL, data = data, fitting_method = fitting_method, q = q,
                      inits = inits,  method = "Brent", lower = min(data[data>0]),
                      upper = quantile(data[data>0], 0.9)) #ifelse(quantile(data[data>0], 0.9)>15,15,quantile(data[data>0], 0.9) )
       # par.fit = fit.extgp(data = data[data>0], model=1, method = fitting_method, init =  c(0.9, inits) ,
@@ -1090,7 +1095,7 @@ fit_segmented = function(paramet, covar){
 #xxx=fit_segemeneted(paramet = sigma_mat["ZER",-c(1:2),1], covar = durations)
 
 
-
+#' @export
 #comparison
 #q is specified in two ways:
 #in number % eg 0% for all postive data, and 95% for exceedances of a 95% quantile. Quantile is over ALL  values (zeros included)

@@ -60,14 +60,16 @@ fit_egpd(precipdata$SCH, declustering_duration = 3,  left_censoring_value = 1 , 
 
 ## try a couple of left censoring values, and check the nRMSE, and the corresponding qqplot
 lapply(seq(1,3,0.5), function(x){
-  fit = fit_egpd(precipdata$SCH, declustering_duration = 3,  left_censoring_value = x , plot = T)
+  fit = fit_egpd(precipdata$SCH, declustering_duration = 3,  left_censoring_value = x ,
+  plot = T)
   print(fit$nRMSE)
   fit$qqplot +
    labs(subtitle = paste0("nRMSE = ", round(fit$nRMSE, 3)))
 })
 
 ## Now try fiitng using PWM method
-fit_egpd(precipdata$SCH, fitting_method = "pwm", declustering_duration = 3, left_censoring_value = 0 , plot = T)
+fit_egpd(precipdata$SCH, fitting_method = "pwm", declustering_duration = 3,
+left_censoring_value = 0 , plot = T)
 }
 
 }
