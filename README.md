@@ -1,4 +1,4 @@
-# egpdIDF: Modeling Intensity-Duration-Frequency (IDF) Curves using the Extended Genaralized Pareto Distribution (EGPD)
+# egpdIDF: Modeling Intensity-Duration-Frequency (IDF) and Intensity-Duration-Area-Frequency(IDAF) Curves using the Extended Genaralized Pareto Distribution (EGPD)
 [![DOI](https://zenodo.org/badge/627360162.svg)](https://zenodo.org/badge/latestdoi/627360162)
 # Introduction
 

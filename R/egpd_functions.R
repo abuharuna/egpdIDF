@@ -1,4 +1,4 @@
-
+#' @export
 #returns  the negative loglikelohood (log of the density function) of egpd for sigma = sigma_D
 d_egpd=function(x, sigma_d, xi, kappa){
   if (all(unique(xi) > 0.000001)) {
@@ -20,7 +20,7 @@ p_egpd=function(x, sigma_d, xi, kappa){
   }
 }
 
-
+#' @export
 # Probability density function of duration-dependent EGPD distribution
 degpd_d <- function(x,  kappa, sigma0, xi, eta, theta, d) {
 
@@ -74,6 +74,7 @@ get_sigma_d <- function(par, d){
   return(sigma_d)
 }
 
+#' @export
 decluster_set_NA <- function(x, init_time_step, step) {
   # Get indices of valid and invalid time steps
   val_id <- seq(init_time_step, length(x), step)
