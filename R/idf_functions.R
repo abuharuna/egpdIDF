@@ -74,7 +74,7 @@ fit_egpd <- function(data, fitting_method = "mle", init, declustering_duration=1
       if(init[c('kappa')] > 0.05  &
          init[c('sigma')] > 0.02  &
          init[c('kappa')] <= 3 &
-         init[c('xi')] < 0.4 &
+         init[c('xi')] < 0.25 &
          init[c('xi')] > 10^(-6) ){
 
         # for left censored data
@@ -390,7 +390,7 @@ local_fit_IDF_h_par  <- function(sample, fitting_method= "mle", left_censoring_v
     if (auto_fit & rmse>  nrmse_tol) {
       result = optim(par = 0.5, fn = auto_egpd_fit, gr = NULL, data = data, fitting_method = fitting_method, q = q,
                      inits = inits,  method = "Brent", lower = min(data[data>0]),
-                     upper = quantile(data[data>0], 0.9)) #ifelse(quantile(data[data>0], 0.9)>15,15,quantile(data[data>0], 0.9) )
+                     upper = quantile(data[data>0], 0.5)) #ifelse(quantile(data[data>0], 0.9)>15,15,quantile(data[data>0], 0.9) )
       # par.fit = fit.extgp(data = data[data>0], model=1, method = fitting_method, init =  c(0.9, inits) ,
       #                     censoring=c(result[[1]],Inf), rounded = 0, confint = F,  plots = F, R = 1)$fit[[1]]
       par.fit =  fit_egpd(data = data[data>0], fitting_method  = fitting_method, init =  c(0.9, inits), left_censoring_value = result[[1]])$fitted[[1]]
