@@ -598,7 +598,7 @@ fit_egpd_idf_data_driven <- function(station_data, durations, declustering_durat
     # }else{
     #   vec_xi_d[vec_xi_d<1e-6] = 1e-6
     # }
-    if (all(vec_xi_d < 0) |  any(vec_xi_d > 0.5) ) {
+    if (all(vec_xi_d < 0) |  any(vec_xi_d > 0.25) ) {
       return(1e100)
     }else{
       vec_xi_d[vec_xi_d<1e-6] = 1e-6
